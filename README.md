@@ -7,6 +7,6 @@ The guidelines for best practices are:
 - Example tutorial notebooks go directly in the commisisoning subfolder; tests run on additional multiple datasets go in the subdirectory `testing` within each commissioning folder.
 
 The structure of this repository is: <br>
-*Commissioning tasks*
- *python modules for the task, tutorial notebooks* 
-   *testing: notebooks run on datasets to complete the commissioning tasks*
+Commissioning tasks
+    python modules for the task, tutorial notebook
+        testing: notebooks run on datasets to complete the commissioning tasks
