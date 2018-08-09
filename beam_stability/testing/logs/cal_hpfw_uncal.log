@@ -1,0 +1,116 @@
+08/09/2018 11:39:15 AM - root - INFO : Logging started!
+08/09/2018 11:39:15 AM - root - INFO : To see the log in a bash window use the following command:
+08/09/2018 11:39:15 AM - root - INFO : tail -n +1 -f /home/adams/commissioning/beam_stability/testing/logs/cal_hpfw_uncal.log
+08/09/2018 12:03:26 PM - root - INFO : Logging started!
+08/09/2018 12:03:26 PM - root - INFO : To see the log in a bash window use the following command:
+08/09/2018 12:03:26 PM - root - INFO : tail -n +1 -f /home/adams/commissioning/beam_stability/testing/logs/cal_hpfw_uncal.log
+08/09/2018 12:04:57 PM - root - INFO : Logging started!
+08/09/2018 12:04:57 PM - root - INFO : To see the log in a bash window use the following command:
+08/09/2018 12:04:57 PM - root - INFO : tail -n +1 -f /home/adams/commissioning/beam_stability/testing/logs/cal_hpfw_uncal.log
+08/09/2018 01:00:23 PM - CONVERT - INFO : ### Configuration file /home/adams/commissioning/beam_stability/testing/cfg/cal_hpfw_uncal.cfg successfully read! ###
+08/09/2018 01:00:23 PM - CONVERT - INFO : ########## FILE CONVERSION started ##########
+08/09/2018 01:00:23 PM - CONVERT - INFO : ### Starting conversion from MS to UVFITS format ###
+08/09/2018 01:00:23 PM - CONVERT - DEBUG : # Creating directory /data/adams/apertif/beam_stability/180608006_3C48/19/crosscal #
+08/09/2018 01:09:43 PM - CONVERT - INFO : ### Converted MS file /data/adams/apertif/beam_stability/180608006_3C48/19/raw/3C48_HPFW.MS to UVFITS format! ###
+08/09/2018 01:09:43 PM - CONVERT - INFO : ### Conversion from MS to UVFITS format done! ###
+08/09/2018 01:09:43 PM - CONVERT - INFO : ### Starting conversion from UVFITS to MIRIAD format ###
+08/09/2018 01:09:43 PM - masher - DEBUG : fits in=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.UVFITS op=uvin out=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir 
+08/09/2018 01:09:43 PM - basher - DEBUG : fits in=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.UVFITS op=uvin out=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir 
+08/09/2018 01:14:25 PM - basher - DEBUG : Command = fits in=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.UVFITS op=uvin out=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir 
+08/09/2018 01:14:25 PM - basher - DEBUG : 
+
+fits: Revision 1.32, 2014/09/15 04:39:01 UTC
+
+Determining various defaults ...
+  Assuming systemp=30
+  Assuming jyperk=8
+
+Analysing the extension tables ...
+  Using antenna table information
+  Decrementing times for configration 1 by -0.07 seconds (UTC-UT1).
+  Using frequency table information
+  Using source table information
+
+Handling the visibility data
+  Data are linearly polarized
+  Reading the correlation data
+  The estimated integration time of a sample is 31 seconds
+  Number of antennas: 11
+  Number of antenna configurations: 1
+
+08/09/2018 01:14:25 PM - basher - DEBUG : ### Warning:  1 unrecognised cards were written to the history file
+### Warning:  Ignored random parameter INTTIM
+### Warning:  Some visibilities had zero weight
+
+08/09/2018 01:14:25 PM - basher - DEBUG : Returning output.
+08/09/2018 01:14:25 PM - basher - DEBUG : rm -r /data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.UVFITS
+08/09/2018 01:14:34 PM - basher - DEBUG : Returning output.
+08/09/2018 01:14:34 PM - CONVERT - INFO : ### Converted UVFITS file /data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.UVFITS to MIRIAD format! ###
+08/09/2018 01:14:34 PM - CONVERT - INFO : ### Conversion from UVFITS to MIRIAD format done! ###
+08/09/2018 01:14:34 PM - CONVERT - INFO : ########## FILE CONVERSION done ##########
+08/09/2018 01:15:29 PM - root - INFO : Logging started!
+08/09/2018 01:15:29 PM - root - INFO : To see the log in a bash window use the following command:
+08/09/2018 01:15:29 PM - root - INFO : tail -n +1 -f /home/adams/commissioning/beam_stability/testing/logs/cal_hpfw_uncal.log
+08/09/2018 01:17:45 PM - masher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/commissioning/beam_stability/testing/logs/source.log 
+08/09/2018 01:17:45 PM - basher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/commissioning/beam_stability/testing/logs/source.log 
+08/09/2018 01:17:45 PM - basher - DEBUG : Command = uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/commissioning/beam_stability/testing/logs/source.log 
+08/09/2018 01:17:45 PM - basher - DEBUG : 
+
+uvlist: Revision 1.8, 2013/08/30 01:49:21 UTC
+
+
+08/09/2018 01:17:45 PM - basher - DEBUG : ### Warning:  GETFIELD: string too long: /home/adams/commissioning/beam_stability/testing/logs/source.log
+
+08/09/2018 01:17:45 PM - basher - DEBUG : Returning output.
+08/09/2018 01:18:59 PM - masher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/commissioning/beam_stability/testing/logs/source.log 
+08/09/2018 01:18:59 PM - basher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/commissioning/beam_stability/testing/logs/source.log 
+08/09/2018 01:18:59 PM - basher - DEBUG : Command = uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/commissioning/beam_stability/testing/logs/source.log 
+08/09/2018 01:18:59 PM - basher - DEBUG : 
+
+uvlist: Revision 1.8, 2013/08/30 01:49:21 UTC
+
+
+08/09/2018 01:18:59 PM - basher - DEBUG : ### Warning:  GETFIELD: string too long: /home/adams/commissioning/beam_stability/testing/logs/source.log
+
+08/09/2018 01:18:59 PM - basher - DEBUG : Returning output.
+08/09/2018 01:21:05 PM - masher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:21:05 PM - basher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:21:05 PM - basher - DEBUG : Command = uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:21:05 PM - basher - DEBUG : 
+
+uvlist: Revision 1.8, 2013/08/30 01:49:21 UTC
+
+
+08/09/2018 01:21:05 PM - basher - DEBUG : Returning output.
+08/09/2018 01:21:49 PM - masher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:21:49 PM - basher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:21:49 PM - basher - DEBUG : Command = uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:21:49 PM - basher - DEBUG : 
+
+uvlist: Revision 1.8, 2013/08/30 01:49:21 UTC
+
+
+08/09/2018 01:21:49 PM - basher - DEBUG : Returning output.
+08/09/2018 01:22:43 PM - masher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:22:43 PM - basher - DEBUG : uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:22:43 PM - basher - DEBUG : Command = uvlist vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir options=source log=/home/adams/apercal/temp/mirlog/source.log 
+08/09/2018 01:22:43 PM - basher - DEBUG : 
+
+uvlist: Revision 1.8, 2013/08/30 01:49:21 UTC
+
+
+08/09/2018 01:22:43 PM - basher - DEBUG : Returning output.
+08/09/2018 01:24:46 PM - masher - DEBUG : uvspec stokes=ii log=/home/adams/apercal/temp/mirlog/contsrc_12h.log interval=1000.0 vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir offset='0.0,-1011.1' options=nobase,avall axis=frequency,amplitude 
+08/09/2018 01:24:46 PM - basher - DEBUG : uvspec stokes=ii log=/home/adams/apercal/temp/mirlog/contsrc_12h.log interval=1000.0 vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir offset='0.0,-1011.1' options=nobase,avall axis=frequency,amplitude 
+08/09/2018 01:27:52 PM - basher - DEBUG : Command = uvspec stokes=ii log=/home/adams/apercal/temp/mirlog/contsrc_12h.log interval=1000.0 vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir offset='0.0,-1011.1' options=nobase,avall axis=frequency,amplitude 
+08/09/2018 01:27:52 PM - basher - DEBUG : 
+UvSpec: version 1.0 21-Apr-10
+
+08/09/2018 01:27:52 PM - basher - DEBUG : Returning output.
+08/09/2018 01:31:05 PM - masher - DEBUG : uvspec stokes=ii log=/home/adams/apercal/temp/mirlog/contsrc_tint.log interval=30.0 vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir offset='0.0,-1011.1' options=nobase,avall,timelog axis=frequency,amplitude 
+08/09/2018 01:31:05 PM - basher - DEBUG : uvspec stokes=ii log=/home/adams/apercal/temp/mirlog/contsrc_tint.log interval=30.0 vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir offset='0.0,-1011.1' options=nobase,avall,timelog axis=frequency,amplitude 
+08/09/2018 01:34:12 PM - basher - DEBUG : Command = uvspec stokes=ii log=/home/adams/apercal/temp/mirlog/contsrc_tint.log interval=30.0 vis=/data/adams/apertif/beam_stability/180608006_3C48/19/crosscal/3C48_HPFW.mir offset='0.0,-1011.1' options=nobase,avall,timelog axis=frequency,amplitude 
+08/09/2018 01:34:12 PM - basher - DEBUG : 
+UvSpec: version 1.0 21-Apr-10
+
+08/09/2018 01:34:12 PM - basher - DEBUG : Returning output.
