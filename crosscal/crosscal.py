@@ -4,6 +4,10 @@
 
 #load necessary packages
 import os
+import numpy as np
+from astropy.io import ascii
+import sys
+sys.path.append('/home/adams/altadata')
 
 #define a class that is used for specifying the scans to be investigated
 
@@ -90,15 +94,21 @@ class ScanSpecification(object):
 
 
 
-def get_scan_list(scans):
+def get_scan_list(scans,obsrecordfile):
     #This takes a ScanObject that specifies the scans wanted
-    #Use this information to produce a scan and beam list 
-    #will assume all data is located on the current happili node working on
-    #searching observation record and getting from ALTA is beyond this
+    #Use this information to produce a scan and beam list
+    #All data is on ALTA now, so need to search there
+    #ATDB is not yet up to the task, so use Apertif Observation Record
+    #provide this as a specific input in csv format
+    
+    #first, read the observation record in:
+    print 'Reminder: Make sure observation record is up-to-date!' #reminder
+    obsrecord = ascii.read(obsrecordfile)
+
     #start by checking for different modes of operation
     #two modes will be 
     #(1) switch: for beam switchign observations in a row
-    #(2) variability: for tracking long-term variability ina given scan
+    #(2) variability: for tracking long-term variability in a given scan
     if scans.startdate != '':
         if scans.enddate != '':
             if scans.beam != '':
@@ -123,41 +133,102 @@ def get_scan_list(scans):
     else:
         mode = None
         print "No scan specification set"
+    
     #set placeholders for scan and beam list        
     scan_list = []
     beam_list = []
-    #first, figure out if I'm on happili-01, or another node
-    topdirs = os.listdir('/')
-    if 'data2' in topdirs:
-        happili01= True
-    else:
-        happili01 = False
-    #happili01 is a variable that tells me if I'm on happili01 or not
-    #run through the different modes
+
+
     if mode == 'switch':
         if scans.nscan == '':
             #if nscan isn't set, calculate it
             nscans = int(scans.endscan) - int(scans.startscan) + 1
             scans.setnscan(nscans)
-        scan_list = np.zeros(int(scans.nscan)) #set scanlist to be lenght of nscan
-        beam_list = np.zeros(int(scans.nscan)) #set beamlist to length of nscan
-        #iterate through each scan and add its path to the scan_list
-        #also add beam to beamlist
-        for n in scans.nscan:
+        scan_list = np.empty(int(scans.nscan),dtype=object) #set scanlist to be lenght of nscan
+        beam_list = np.empty(int(scans.nscan),dtype=object) #set beamlist to length of nscan
+        #iterate through each scan and add it to the scan_list
+        #parse obsrecord to find relevant beam aand add beam to beamlist
+        for n in xrange(int(scans.nscan)):
             scannumber = int(scans.startscan)+n #get scan number as an int
-            #find the directory
+            scan_list[n] = str(scannumber)  #write everything as strings
+            #find the entry in obsrecord TaskId and parse beam from Data entry
+            ind = np.where(obsrecord['TaskId'] == scannumber)[0]
+            name = str(obsrecord['Data'][ind]) 
+            #have to turn into a string because this is 'MaskedColumn'
+            name_split = name.split('_')
+            #find the last entry for beam number.
+            #There should always be three entries - scan (with column name, annoyingly), source and beam
+            #If there are only two entries, assume beam is 0. 
+            #This might not have been true in past but should be always now.
+            if len(name_split) <3:
+                beam = 0
+            else:
+                beam = int(name_split[-1])
+            beam_list[n] = str(beam)  #write as string
             
-        
+    if mode == 'variability':
+        #need to implement this but it isn't critical yet.
+        print "Identifying scanlist and beamlist for variability mode isn't implemented yet"
     
     
     return mode,scan_list,beam_list
  
-"""    
-def copy_scans():
+  
+def copy_scans(scans,obsrecordfile,targetdir,run=False):
     #This will use the output of get_scan_list 
-    #to copy the data to where I want it to be
-    #do manually. start w/ happili, expand to ALTA later
-
+    #to retrieve data from ALTA and move to targetdest
+    #I will take same input as get_scan_list and run it here
+    #Want to minimize number of calls by user
+    #Maybe the proper way to do this is to have global variables, 
+    #But that's a step too complicated for me, I think
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    #get the values I need
+    
+    #get the data
+    
+    #first, move into targetdest (create if needed)
+    #assumption is all data goes in same directory
+    if os.path.exists(targetdir):
+        pass
+    else:
+        os.makedirs(targetdir)
+    
+    #then change to working directory to copy data
+    #think this is how the usage of ALTA data module from Vanessa is
+    os.chdir(targetdir)
+    print 'Moved to and copying data to {0}'.format(os.getcwd())
+    
+    if run==False:
+        print 'In verification mode, will print commands to screen'
+    elif run==True:
+        print 'In running mode, will execute commands'
+    else:
+        print 'Mode is not defined. Choose verify or run'
+    
+    #now iterate through scan/beam lists and run command to retrieve data
+    for scan,beam in zip(scan_list,beam_list):
+        #first parse scan as required:
+        scandate = scan[0:6]
+        scannum = scan[6:9]
+        #format string command to match usage:
+            # ALTA data transfer: Uses the iROD client to transfer data from ALTA
+            # Example usage: >> python getdata_alta.py 180316 004-010 00-36
+            # V.A. Moss (vmoss.astro@gmail.com)
+        #hope is that since I did sys.path.append('/home/adams/altadata'),
+        #I don't have to specify full path
+        string_command = "python getdata_alta.py {0} {1} {2:0>2}".format(scandate,scannum,beam)
+        #!!!!!!!Important question - do I have specify beams with double integers?
+        #Thayt's annoying because it doesn't match naming scheme
+        #But maybe I can do with format - yep!
+        if run==False:
+            print string_command
+        elif run==True:
+            #and run the command:
+            pass #just until check with Vanessa
+            #os.system(string_command)
+    
+    
+"""
 def flag_scans():
     #This will use output of get_scan_list
     #plus apercal.preflag() to flag the data

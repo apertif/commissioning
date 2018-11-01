@@ -4,8 +4,10 @@
 #That way, I can just run tests on a single object if I only update one function
 
 import sys
-sys.path.append('/home/adams/apertif/CROSSCAL')
+sys.path.append('/home/adams/commissioning/crosscal')
 import crosscal as cc
+
+obsrecordfile = '/home/adams/commissioning/APERTIF_observation_record_1nov2018.csv'
 
 class TestClass_ScanSpecification(object):
     #define scanspecification as a class
@@ -179,56 +181,65 @@ class TestClass_get_scan_list(object):
     def test_get_scan_list_startdateonly(self):
         scans = cc.ScanSpecification()
         scans.setstartdate('20180504')
-        mode,scanlist,beamlist = cc.get_scan_list(scans)
+        mode,scanlist,beamlist = cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
     def test_get_scanlist_enddateonly(self):
         scans = cc.ScanSpecification()
         scans.setenddate('20180507')
-        mode,scanlist,beamlist=cc.get_scan_list(scans)
+        mode,scanlist,beamlist=cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
     def test_get_scanlist_startdate_enddate_nobeam(self):
         scans=cc.ScanSpecification()
         scans.setstartdate('20180403')
         scans.setenddate('20180508')
-        mode,scanlist,beamlist=cc.get_scan_list(scans)
+        mode,scanlist,beamlist=cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
     def test_get_scanlist_beamonly(self):
         scans =cc.ScanSpecification()
         scans.setbeam('23')
-        mode,scanlist,beamlist=cc.get_scan_list(scans)
+        mode,scanlist,beamlist=cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
     def test_get_scanlist_variabilitymode(self):
         scans = cc.ScanSpecification()
         scans.setbeam('23')
         scans.setenddate('20180607')
         scans.setstartdate('20180504')
-        mode,scanlist,beamlist=cc.get_scan_list(scans)
+        mode,scanlist,beamlist=cc.get_scan_list(scans,obsrecordfile)
         assert mode == 'variability'
     def test_get_scanlist_startscanonly(self):
         scans = cc.ScanSpecification()
         scans.setstartscan('180403003')
-        mode,scanlist,beamlist = cc.get_scan_list(scans)
+        mode,scanlist,beamlist = cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
     def test_get_scanlist_startendscan(self):
         scans = cc.ScanSpecification()
         scans.setstartscan('180403001')
         scans.setendscan('180403032')
-        mode,scanlist,beamlist = cc.get_scan_list(scans)
+        mode,scanlist,beamlist = cc.get_scan_list(scans,obsrecordfile)
         assert mode == 'switch'
     def test_get_scanlist_startscan_nscan(self):
         scans = cc.ScanSpecification()
         scans.setstartscan('180403001')
         scans.setnscan(23)
-        mode,scanlist,beamlist = cc.get_scan_list(scans)
+        mode,scanlist,beamlist = cc.get_scan_list(scans,obsrecordfile)
         assert mode == 'switch'
     def test_get_scanlist_nscanonly(self):
         scans = cc.ScanSpecification()
         scans.setnscan(24)
-        mode,scanlist,beamlist=cc.get_scan_list(scans)
+        mode,scanlist,beamlist=cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
     def test_get_scanlist_endscanonly(self):
         scans = cc.ScanSpecification()
         scans.setendscan('180403023')
-        mode,scanlist,beamlist = cc.get_scan_list(scans)
+        mode,scanlist,beamlist = cc.get_scan_list(scans,obsrecordfile)
         assert mode == None
+    def test_get_26oct_3C147_switching(self):
+        scans = cc.ScanSpecification()
+        scans.setstartscan('181026063')
+        scans.setendscan('181026099')
+        mode,scanlist,beamlist = cc.get_scan_list(scans,obsrecordfile)
+        assert scanlist[14] == '181026077'
+        assert beamlist[14] == '14'
+        assert scanlist[3] == '181026066'
+        assert beamlist[3] == '3'
         
