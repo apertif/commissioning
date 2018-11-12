@@ -367,54 +367,72 @@ def get_bp_sols(bptable):
     return ant_names,times,freqs,amp_sols,phase_sols
 
 
-def compare_scan_solution_bp(scans,obsrecordfile,basedir,refscan):
+def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
     #This will compare scan BP solutions to reference (given) for amp & phase 
     #(easiest to do together at once)
     #will return a multi-d array (ant, freq, pol, scan)
-    #that is BP amp solution for each scan divided by reference
+    #If norm=True, amp solution is divided by reference and phase ref is subtracted from sol
+    #otherwise it returns all the solutions into array
     
     #first, get scan and beam list:
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     
-    #then get reference values
-    #refscan must be in scan_list:
-    print 'Helpful reminder: reference scan must be in scan list, or things will die :)'
-    ind = np.where(str(refscan) == scan_list)[0]
-    scan = scan_list[ind][0]
-    beam = beam_list[ind][0]
-    refbpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
-    #assumes naming convention in Apercal won't change!
-    ant_names,times,freqs,ref_amp_sols,ref_phase_sols = get_bp_sols(refbpsol)
+    #check if want normalized solutions
+    #if so, get reference values
+    if norm == True:        
+        if refscan =='':
+            print 'Must provide a reference scan for normalization!'
+            print 'Setting normalization to False'
+            norm = False #set normalization to False since there is no ref scan
+            ref_amp_sol = np.nan
+            ref_phase_sol = np.nan
+        else:
+            print 'Will normalize solutions'
+            ind = np.where(str(refscan) == scan_list)[0]
+            scan = scan_list[ind][0]
+            beam = beam_list[ind][0]
+            refbpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
+            #assumes naming convention in Apercal won't change!
+            ant_names,times,freqs,ref_amp_sol,ref_phase_sol = get_bp_sols(refbpsol)
     
     #now iterate through each beam
-    #will want to normalize by reference
+    #will want to normalize by reference, if that option is set
     #create array to hold everything before I start
-    norm_bp_amp_vals = np.empty((ref_amp_sols.shape[0],ref_amp_sols.shape[1],ref_amp_sols.shape[2],int(scans.nscan)))
-    norm_bp_phase_vals = np.empty((ref_amp_sols.shape[0],ref_amp_sols.shape[1],ref_amp_sols.shape[2],int(scans.nscan)))
+    #easy if I have reference, more difficult otherwise
+    #So maybe just get first value as a test
+    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan_list[0],beam_list[0])
+    ant_names,times,freqs,amps,phases = get_bp_sols(testsol)
+    bp_amp_vals = np.empty((amps.shape[0],amps.shape[1],amps.shape[2],int(scans.nscan)))
+    bp_phase_vals = np.empty((phases.shape[0],phases.shape[1],phases.shape[2],int(scans.nscan)))
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         bpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
-        ant_names,times,freqs,amp_sols,phase_sols = get_bp_sols(bpsol)
-        norm_bp_amp = amp_sols / ref_amp_sols
-        norm_bp_phase = phase_sols - ref_phase_sols #"nromalize" phase by subtracting - care about absolute deviation
-        norm_bp_amp_vals[:,:,:,n] = norm_bp_amp
-        norm_bp_phase_vals[:,:,:,n] = norm_bp_phase * 180/np.pi #put in degrees
+        ant_names,times,freqs,amps,phases = get_bp_sols(bpsol)
+        if norm == True:
+            bp_amp = amps / ref_amp_sol
+            bp_phase = phases - ref_phase_sol #"nromalize" phase by subtracting - care about absolute deviation
+        else:
+            bp_amp = amps
+            bp_phase = phases
+        bp_amp_vals[:,:,:,n] = bp_amp
+        bp_phase_vals[:,:,:,n] = bp_phase * 180/np.pi #put in degrees
         
-    return ant_names,times,freqs,norm_bp_amp_vals,norm_bp_phase_vals
+    return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
 
 
-def plot_compare_bp_beam(scans,obsrecordfile,basedir,refscan,plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
     
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    ant_names,times,freqs,norm_bp_amp_vals,norm_bp_phase_vals = compare_scan_solution_bp(scans,obsrecordfile,basedir,refscan)        
+    ant_names,times,freqs,bp_amp_vals,bp_phase_vals = compare_scan_solution_bp(scans,obsrecordfile,
+                                                                               basedir,norm=norm,refscan=refscan)        
     if plotmode == 'amp':
-        plotvals = norm_bp_amp_vals
+        plotvals = bp_amp_vals
         print 'plotting amplitude solutions'
     elif plotmode == 'phase':
-        plotvals = norm_bp_phase_vals
+        plotvals = bp_phase_vals
         print 'plotting phase solutions'
     else:
         print 'plotmode={} not defined'.format(mode)
@@ -441,7 +459,7 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,refscan,plotmode='amp',pol=
     #this is what I return from program
     fig= plt.figure(figsize=(xsize,ysize))
     plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
-    plt.suptitle('Bandpass {}'.format(mode), fontsize='large')
+    plt.suptitle('Bandpass {0}, normalization {1}'.format(mode,norm), fontsize='large')
 
 
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
