@@ -262,6 +262,7 @@ def copy_scans(scans,obsrecordfile,basedir,run=False):
         #But maybe I can do with format - yep!
         #check if data already exists - if it does, don't do anything (set run=False to print to screen)
         filename = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+        filerun = True
         if os.path.exists(filename):
             filerun=False #file exists, so don't need to copy again            
         if run==False:
