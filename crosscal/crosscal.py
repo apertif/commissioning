@@ -345,7 +345,7 @@ def calibrate_scans(scans,obsrecordfile,basedir,cfgfile):
 def get_bp_sols(bptable):
     #takes a path to a BP solution table
     #This should also work for the delay table - same keyword and same structure (one row per ant)
-    #Gain tables don't work - values per baseline
+    #Gain tables don't work - values per time
     #K tables don't work - FPARAM keyword
     taql_command = "SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0}".format(bptable)
     t=pt.taql(taql_command)
@@ -362,6 +362,30 @@ def get_bp_sols(bptable):
     freqs = t.getcol('CHAN_FREQ')
 
     return ant_names,times,freqs,amp_sols,phase_sols
+
+def get_gain_sols(gaintable):
+    #takes path to an gain solution table
+    #returns amp,phase as function of time (no frequency info)
+    
+    #first get antenna names, need to iterate over later
+    taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(gaintable)
+    t= pt.taql(taql_antnames)
+    ant_names=t.getcol("NAME")
+    
+    #then iterate over antenna
+    amp_ant_array = np.empty(len(ant_names),dtype=object)
+    phase_ant_array = np.empty(len(ant_names),dtype=object)
+    for ant in xrange(len(ant_names)):
+        taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0} " 
+                        "WHERE ANTENNA1={1}").format(gaintable,ant)
+        t = pt.taql(taql_command)
+        amp_ant_array[ant] = t.getcol('amp')
+        phase_ant_array[ant] = t.getcol('phase')
+        times = t.getcol('TIME')
+        
+    return ant_names,times,amp_ant_array,phase_ant_array
+    
+
 
 
 def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
@@ -416,15 +440,75 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
         
     return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
 
+def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan=''):
+    #This will collect all gain solutions for a scan of beams
+    #If set, will nromalize to a reference.
+    #Note that each scan will have different times, so will compute a scalar average
+    #and use that for comparison
+    #will return an array that is amp and phase solution for each scan (divided by reference)
+    #these scans can be separated by time or beam
+    
+    #first, get scan and beam list:
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    
+    #check if want normalized solutions
+    #if so, get reference values
+    if norm == True:        
+        if refscan =='':
+            print 'Must provide a reference scan for normalization!'
+            print 'Setting normalization to False'
+            norm = False #set normalization to False since there is no ref scan
+            ref_amp_sol = np.nan
+            ref_phase_sol = np.nan
+        else:
+            print 'Will normalize solutions'
+            ind = np.where(str(refscan) == scan_list)[0]
+            scan = scan_list[ind][0]
+            beam = beam_list[ind][0]
+            refsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(basedir,scan,beam)
+            #assumes naming convention in Apercal won't change!
+            ant_names,times,amp_ant_array,phase_ant_array = get_gain_sols(refsol)
+            refamp_ant_array = np.mean(amp_ant_array)
+            #okay - for this to work, i want scalar average per antenna
+            #which means i need to produce nicer output from getsols
+            #want to have a multi-d array rather than nesting.
+            """NOT DONE HERE"""
+    
+    #now iterate through each beam
+    #will want to normalize by reference, if that option is set
+    #create array to hold everything before I start
+    #easy if I have reference, more difficult otherwise
+    #So maybe just get first value as a test
+    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan_list[0],beam_list[0])
+    ant_names,times,freqs,amps,phases = get_bp_sols(testsol)
+    bp_amp_vals = np.empty((amps.shape[0],amps.shape[1],amps.shape[2],int(scans.nscan)))
+    bp_phase_vals = np.empty((phases.shape[0],phases.shape[1],phases.shape[2],int(scans.nscan)))
+    #iterate through scans:
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        bpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
+        ant_names,times,freqs,amps,phases = get_bp_sols(bpsol)
+        if norm == True:
+            bp_amp = amps / ref_amp_sol
+            bp_phase = phases - ref_phase_sol #"nromalize" phase by subtracting - care about absolute deviation
+        else:
+            bp_amp = amps
+            bp_phase = phases
+        bp_amp_vals[:,:,:,n] = bp_amp
+        bp_phase_vals[:,:,:,n] = bp_phase * 180/np.pi #put in degrees
+        
+    return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
 
-def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+
+def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
+                         refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
     
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    ant_names,times,freqs,bp_amp_vals,bp_phase_vals = compare_scan_solution_bp(scans,obsrecordfile,
-                                                                               basedir,norm=norm,refscan=refscan)        
+    (ant_names,times,freqs,
+     bp_amp_vals,bp_phase_vals) = compare_scan_solution_bp(scans,obsrecordfile,basedir,
+                                                           norm=norm,refscan=refscan)        
     if plotmode == 'amp':
         plotvals = bp_amp_vals
         print 'plotting amplitude solutions'
