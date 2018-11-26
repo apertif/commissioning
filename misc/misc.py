@@ -21,7 +21,7 @@ reference positions. It will also add the retrieval of coordinates, calculation 
 and visualization of the offsets.
 """
 
-def get_data_beam_post(startscan,endscan,refscan,obsrecordfile):
+def get_data_beam_pos(startscan,endscan,refscan,obsrecordfile):
     #Get data for a startscan,endscan, and a scan specified as reference to get relative positions
     #For the switching observations, use crosscal infrastructure:
     scans = cc.ScanSpecification()
@@ -35,7 +35,7 @@ def get_data_beam_post(startscan,endscan,refscan,obsrecordfile):
     altadata_string_command = "python /home/adams/altadata/getdata_alta.py {0}-{0} 00-36".format(refscan)
     os.system(altadata_string_command)
     
-def get_coords_and_offsets(startscan,endscan,refscan):
+def get_coords_and_offsets(startscan,endscan,refscan,obsrecordfile):
     #want to get my coordinates and offsets for full range of scans
     #first, get scan & beam list to help make life easier:
     scans = cc.ScanSpecification()
@@ -48,11 +48,11 @@ def get_coords_and_offsets(startscan,endscan,refscan):
     offset_list = np.empty(len(scan_list),dtype=object)
     #get reference coordinate
     refMS = 'WSRTA{0}_B000.MS'.format(refscan)
-    t_field = pt.table(msfile+"::FIELD", readonly=True)
+    t_field = pt.table(refMS+"::FIELD", readonly=True)
     phasedir=t_field[0]["PHASE_DIR"]
-    ref_coord = SkyCoord(phasedir[0],phasedir[1],unit='rad')
+    ref_coord = SkyCoord(phasedir[0,0],phasedir[0,1],unit='rad')
     #now go through each observation to get coordinates
-    for i,scan,beam in enumerate(zip(scan_list,beam_list)):
+    for i,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         #format the msfile:
         msfile = 'WSRTA{0}_B{1:0>3}.MS'.format(scan,beam)
         #read the FIELD table
@@ -61,14 +61,14 @@ def get_coords_and_offsets(startscan,endscan,refscan):
         phasedir=t_field[0]["PHASE_DIR"]
         #this is [ra,dec] in radians
         #put into a SkyCoord object - easy to handle
-        c=SkyCoord(phasedir[0],phasedir[1],unit='rad')
+        c=SkyCoord(phasedir[0,0],phasedir[0,1],unit='rad')
         coord_list[i] = c
         offset_list[i] = c.separation(ref_coord).value
     return coord_list,offset_list,beam_list
 
-def print_offsets(startscan,endscan,refscan):
+def print_offsets(startscan,endscan,refscan,obsrecordfile):
     #produce a nicely formatted overview of offsets
-    coord_list,offset_list,beam_list = get_coords_and_offsets(startscan,endscan,refscan)
+    coord_list,offset_list,beam_list = get_coords_and_offsets(startscan,endscan,refscan,obsrecordfile)
     print 'Beam  Offset in degrees'
     for beam,offset in zip(beam_list,offset_list):
         print 'B{0:0>3}  {1}'.format(beam,offset)
