@@ -1,9 +1,9 @@
-import libs.lib as lib
+import apercal.libs.lib as lib
 import apercal
-import subs.readmirlog
+import apercal.subs.readmirlog
 import numpy as np
 from matplotlib import pyplot as plt
-import subs
+import apercal.subs
 
 #########################
 
