@@ -291,18 +291,14 @@ def fix_source_name(scans,obsrecordfile,basedir):
         t_field.flush()
     
     
-def flag_scans(scans,obsrecordfile,basedir,cfgfile):
+def flag_scans(scans,obsrecordfile,basedir,cfgfile,edges=True,ghosts=True):
     #This will use output of get_scan_list
     #plus apercal.preflag() to flag the data
     #basedir should be in cfg file but specify manually to make sure things match
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     preflag = apercal.preflag(cfgfile)
-    #print 'Setting basedir to {}'.format(basedir)
-    """Not sure about next bit - turning off subband edge and ghost flagging
-    Would like to see these in BP solution but maybe it will also affect overall gain solution
-    We'll see for now  - can modify to make things different/fancier later"""
-    preflag.preflag_edges = False #leave these in to see in bandpass
-    preflag.preflag_ghosts = False #leave these in to see in bandpass solution
+    preflag.preflag_edges = edges #option to turn on/off
+    preflag.preflag_ghosts = ghosts #option to turn on/off
     #set source and pol cal to False - will iterate through updating fluxcal and running preflag one at a time
     preflag.preflag_manualflag_polcal = False
     preflag.preflag_manualflag_target = False
