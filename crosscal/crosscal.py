@@ -480,38 +480,46 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
             ind = np.where(str(refscan) == scan_list)[0]
             scan = scan_list[ind][0]
             beam = beam_list[ind][0]
-            refsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(basedir,scan,beam)
+            refsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
+                basedir,scan,beam)
             #assumes naming convention in Apercal won't change!
             ant_names,times,amp_ant_array,phase_ant_array = get_gain_sols(refsol)
-            refamp_ant_array = np.mean(amp_ant_array)
-            #okay - for this to work, i want scalar average per antenna
-            #which means i need to produce nicer output from getsols
-            #want to have a multi-d array rather than nesting.
-            """NOT DONE HERE"""
+            #average over time
+            #have array of shape (nant,nstokes):
+            refamp_ant_array = np.mean(amp_ant_array,axis=1)
+            refphase_ant_array = np.mean(phase_ant_array,axis=1)
+            array_shape = refamp_ant_array.shape
+            refamp = refamp_ant_array.reshape(array_shape[0],1,array_shape[1])
+            refphase = refphase_ant_array.reshape(array_shape[0],1,array_shape[1])
     
     #now iterate through each beam
     #will want to normalize by reference, if that option is set
     #create array to hold everything before I start
     #easy if I have reference, more difficult otherwise
     #So maybe just get first value as a test
-    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan_list[0],beam_list[0])
-    ant_names,times,freqs,amps,phases = get_bp_sols(testsol)
-    bp_amp_vals = np.empty((amps.shape[0],amps.shape[1],amps.shape[2],int(scans.nscan)))
-    bp_phase_vals = np.empty((phases.shape[0],phases.shape[1],phases.shape[2],int(scans.nscan)))
+    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(
+        basedir,scan_list[0],beam_list[0])
+    ant_names,times,amp_sols,phase_sols = get_gain_sols(testsol)
+    gain_amp_vals = np.empty((amp_sols.shape[0],amp_sols.shape[1],
+                              amp_sols.shape[2],int(scans.nscan)))
+    gain_phase_vals = np.empty((phase_sols.shape[0],phase_sols.shape[1],
+                                phase_sols.shape[2],int(scans.nscan)))
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
-        bpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
-        ant_names,times,freqs,amps,phases = get_bp_sols(bpsol)
+        gainsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(
+            basedir,scan,beam)
+        ant_names,times,amp_sols,phase_sols = get_gain_sols(gainsol)
         if norm == True:
-            bp_amp = amps / ref_amp_sol
-            bp_phase = phases - ref_phase_sol #"nromalize" phase by subtracting - care about absolute deviation
+            gain_amp = np.divide(amp_sols, refamp)
+            gain_phase = np.subtract(phase_sols,refphase)
+            #"nromalize" phase by subtracting - care about absolute deviation
         else:
-            bp_amp = amps
-            bp_phase = phases
-        bp_amp_vals[:,:,:,n] = bp_amp
-        bp_phase_vals[:,:,:,n] = bp_phase * 180/np.pi #put in degrees
+            gain_amp = amp_sols
+            gain_phase = phase_sols
+        gain_amp_vals[:,:,:,n] = gain_amp
+        gain_phase_vals[:,:,:,n] = gain_phase * 180/np.pi #put in degrees
         
-    return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
+    return ant_names,times,freqs,gain_amp_vals,gain_phase_vals
 
 
 def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
