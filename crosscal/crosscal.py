@@ -458,10 +458,10 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
 def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan=''):
     #This will collect all gain solutions for a scan of beams
     #If set, will nromalize to a reference.
-    #Note that each scan will have different times, so will compute a scalar average
+    #Note that each scan will have different times, 
+    #so will compute a scalar average
     #and use that for comparison
-    #will return an array that is amp and phase solution for each scan (divided by reference)
-    #these scans can be separated by time or beam
+    #for now, assume separated by beam but by time should also work
     
     #first, get scan and beam list:
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
@@ -497,16 +497,17 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
     #create array to hold everything before I start
     #easy if I have reference, more difficult otherwise
     #So maybe just get first value as a test
-    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(
+    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
         basedir,scan_list[0],beam_list[0])
     ant_names,times,amp_sols,phase_sols = get_gain_sols(testsol)
     gain_amp_vals = np.empty((amp_sols.shape[0],amp_sols.shape[1],
                               amp_sols.shape[2],int(scans.nscan)))
     gain_phase_vals = np.empty((phase_sols.shape[0],phase_sols.shape[1],
                                 phase_sols.shape[2],int(scans.nscan)))
+    print gain_amp_vals.shape
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
-        gainsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(
+        gainsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
             basedir,scan,beam)
         ant_names,times,amp_sols,phase_sols = get_gain_sols(gainsol)
         if norm == True:
@@ -516,10 +517,12 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
         else:
             gain_amp = amp_sols
             gain_phase = phase_sols
+        """Need to account for the fact that different 
+        scans might have different number of time stamps/solutions."""
         gain_amp_vals[:,:,:,n] = gain_amp
         gain_phase_vals[:,:,:,n] = gain_phase * 180/np.pi #put in degrees
         
-    return ant_names,times,freqs,gain_amp_vals,gain_phase_vals
+    return ant_names,times,gain_amp_vals,gain_phase_vals
 
 
 def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
