@@ -372,16 +372,31 @@ def get_gain_sols(gaintable):
     t= pt.taql(taql_antnames)
     ant_names=t.getcol("NAME")
     
+    #then get number of times
+    #need this for setting shape
+    taql_time =  "select TIME from {0} orderby unique TIME".format(gaintable)
+    t= pt.taql(taql_time)
+    times = t.getcol('TIME') 
+    
     #then iterate over antenna
-    amp_ant_array = np.empty(len(ant_names),dtype=object)
-    phase_ant_array = np.empty(len(ant_names),dtype=object)
+    #set array sahpe to be [n_ant,n_time,n_stokes]
+    #how can I get n_stokes? Could be 2 or 4, want to find from data
+    #get 1 data entry
+    taql_stokes = "SELECT abs(CPARAM) AS amp from {0} limit 1" .format(gaintable)
+    t_pol = pt.taql(taql_stokes)
+    pol_array = t_pol.getcol('amp')
+    n_stokes = pol_array.shape[2] #shape is time, one, nstokes
+    
+    amp_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+    phase_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+    
     for ant in xrange(len(ant_names)):
-        taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0} " 
+        taql_command = ("SELECT abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0} " 
                         "WHERE ANTENNA1={1}").format(gaintable,ant)
         t = pt.taql(taql_command)
-        amp_ant_array[ant] = t.getcol('amp')
-        phase_ant_array[ant] = t.getcol('phase')
-        times = t.getcol('TIME')
+        amp_ant_array[ant,:,:] = t.getcol('amp')[:,0,:]
+        phase_ant_array[ant] = t.getcol('phase')[:,0,:]
+
         
     return ant_names,times,amp_ant_array,phase_ant_array
     
