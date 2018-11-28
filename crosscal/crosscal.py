@@ -649,7 +649,7 @@ def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
 
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         plt.subplot(ny, nx, n+1)
-        plt.scatter(freqs,plotvals[:,pol],marker=',',s=0.5)
+        plt.scatter(freqs,plotvals[:,pol,n],marker=',',s=0.5)
         plt.title('{0}, beam {1}'.format(scan,beam))
         plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
         plt.ylim(ymin,ymax)
@@ -698,7 +698,7 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
     #this is what I return from program
     fig= plt.figure(figsize=(xsize,ysize))
     plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
-    plt.suptitle('Bandpass {0}, normalization {1}'.format(mode,norm), fontsize='large')
+    plt.suptitle('Bandpass {0}, normalization {1}'.format(plotmode,norm), fontsize='large')
 
 
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
@@ -759,7 +759,7 @@ def plot_compare_gain_beam(scans,obsrecordfile,basedir,
     #this is what I return from program
     fig= plt.figure(figsize=(xsize,ysize))
     plt.suptitle('Gain {0}, normalization {1}'.
-                 format(mode,norm), fontsize='large')
+                 format(plotmode,norm), fontsize='large')
 
 
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
