@@ -497,6 +497,16 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
     #create array to hold everything before I start
     #easy if I have reference, more difficult otherwise
     #So maybe just get first value as a test
+    """
+    #Note that I will set length of times based on this, 
+    #But this may not be true for all scans
+    #So I will force everything to same shape,
+    #Or I could try using dictionaries
+    #or objects instead
+    #that's probably the best way to do it
+    #but i'll go easy/brute-force for now
+    #and leave that for future improvement
+    """
     testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
         basedir,scan_list[0],beam_list[0])
     ant_names,times,amp_sols,phase_sols = get_gain_sols(testsol)
@@ -504,25 +514,60 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
                               amp_sols.shape[2],int(scans.nscan)))
     gain_phase_vals = np.empty((phase_sols.shape[0],phase_sols.shape[1],
                                 phase_sols.shape[2],int(scans.nscan)))
-    print gain_amp_vals.shape
+    time_vals = np.empty((amp_sols.shape[1],int(scans.nscan)))
+    ntimes = amp_sols.shape[1]
+    print gain_amp_vals.shape,time_vals.shape
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         gainsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
             basedir,scan,beam)
         ant_names,times,amp_sols,phase_sols = get_gain_sols(gainsol)
         if norm == True:
-            gain_amp = np.divide(amp_sols, refamp)
-            gain_phase = np.subtract(phase_sols,refphase)
-            #"nromalize" phase by subtracting - care about absolute deviation
+            #check for length of time axis
+            if len(times) == ntimes:
+                gain_amp = np.divide(amp_sols, refamp)
+                gain_phase = np.subtract(phase_sols,refphase)
+                gain_times = times
+                #"nromalize" phase by subtracting - care about absolute deviation
+            elif len(times) > ntimes:
+                gain_amp = np.divide(amp_sols[:,0:ntimes,:], refamp)
+                gain_phase = np.subtract(phase_sols[:,0:ntimes,:],refphase)
+                gain_times = times[0:ntimes]
+                #"nromalize" phase by subtracting - care about absolute deviation
+            else:
+                gain_amp = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
+                                   np.nan)
+                gain_phase = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
+                                     np.nan)
+                gain_times = np.full(ntimes,np.nan)
+                gain_amp[:,0:len(times),:] = np.divide(amp_sols, refamp)
+                gain_phase[:,0:len(times),:] = np.subtract(phase_sols,refphase)
+                gain_times[0:len(times)] = times
         else:
-            gain_amp = amp_sols
-            gain_phase = phase_sols
-        """Need to account for the fact that different 
-        scans might have different number of time stamps/solutions."""
+            #check for length of time axis:
+            if len(times) == ntimes:
+                gain_amp = amp_sols
+                gain_phase = phase_sols
+                gain_times = times
+            elif len(times) > ntimes:
+                gain_amp = amp_sols[:,0:ntimes,:]
+                gain_phase = phase_sols[:,0:ntimes,:]
+                gain_times = times[0:ntimes]
+            else:
+                gain_amp = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
+                                   np.nan)
+                gain_phase = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
+                                     np.nan)
+                gain_times = np.full(ntimes,np.nan)
+                gain_amp[:,0:len(times),:] = amp_sols
+                gain_phase[:,0:len(times),:] = phase_sols
+                gain_times[0:len(times)] = times
+
         gain_amp_vals[:,:,:,n] = gain_amp
         gain_phase_vals[:,:,:,n] = gain_phase * 180/np.pi #put in degrees
+        time_vals[:,n] = gain_times
         
-    return ant_names,times,gain_amp_vals,gain_phase_vals
+    return ant_names,time_vals,gain_amp_vals,gain_phase_vals
 
 
 def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
@@ -582,7 +627,66 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
     plt.legend()
     
     return fig
+
+def plot_compare_gain_beam(scans,obsrecordfile,basedir,
+                           norm=True,refscan='',plotmode='amp',
+                           pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+    #this will generate plots that compare BP solutions between beams
+    #It can run with option amplitude or phase, default amp
+    #Defaults to showing pol 0, can also change
     
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    (ant_names,time_vals,gain_amp_vals,
+     gain_phase_vals) = compare_scan_solution_gain(scans,
+                                                   obsrecordfile,
+                                                   basedir,norm=norm,
+                                                   refscan=refscan)
+
+    if plotmode == 'amp':
+        plotvals = gain_amp_vals
+        print 'plotting amplitude solutions'
+    elif plotmode == 'phase':
+        plotvals = gain_phase_vals
+        print 'plotting phase solutions'
+    else:
+        print 'plotmode={} not defined'.format(mode)
+    
+    #now setup the plotting environment
+    #total number of plots is number of scans
+    nplots = len(scan_list)
+    ny = int(np.ceil(nplots/float(nx)))
+    #and set up size that I will want
+    #say 3 inches per plot
+    xsize = nx*plotsize
+    ysize = ny*plotsize
+    #and I want global limits, for best comparison
+    #this could potentially change
+    #will have a total offset of 
+    if ymin == 0:
+        ymin = np.nanmin(plotvals)
+    if ymax == 0:
+        ymax = np.nanmax(plotvals)
+    
+    #create figure object
+    #this is what I return from program
+    fig= plt.figure(figsize=(xsize,ysize))
+    plt.suptitle('Gain {0}, normalization {1}'.
+                 format(mode,norm), fontsize='large')
+
+
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        plt.subplot(ny, nx, n+1)
+        for a,ant in enumerate(ant_names):
+            plt.plot(time_vals[:,n], plotvals[a,:,pol,n],label=ant)
+#        for sol in range(plotvals.shape[2]):
+#            plt.plot(plotfreqs, (plotvals[a,:,sol] + np.full(plotvals.shape[1],offset*sol)))
+        plt.title('{0}, beam {1}'.format(scan,beam))
+        plt.ylim(ymin,ymax)
+           
+    plt.legend()
+    
+    return fig
+
 """
 
 def get_time_sequence_for_beam():
