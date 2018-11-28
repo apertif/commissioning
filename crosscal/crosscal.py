@@ -399,8 +399,22 @@ def get_gain_sols(gaintable):
 
         
     return ant_names,times,amp_ant_array,phase_ant_array
-    
 
+
+def get_model(msfile):
+    #take a MS file and get the model column
+    #average over baselines/times
+    #want amp/phase vs. frequency
+    taql_command = "SELECT abs(gmeans(MODEL_DATA)) AS amp, arg(gmeans(MODEL_DATA)) AS phase FROM {0}".format(msfile)
+    t = pt.taql(taql_command)
+    amp = t.getcol('amp')[0,:,:]
+    phase = t.getcol('phase')[0,:,:]
+    taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(msfile)
+    t = pt.taql(taql_freq)
+    freqs = t.getcol('CHAN_FREQ')[0,:]
+    
+    return freqs,amp,phase
+    
 
 
 def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
@@ -570,6 +584,79 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
     return ant_names,time_vals,gain_amp_vals,gain_phase_vals
 
 
+def compare_scan_model(scans,obsrecordfile,basedir):
+    #take a scan object and get the model for each observation
+    #this will confirm that sources are properly named
+    
+    #first, get scan and beam list:
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    
+    #now iterate through each beam
+    #start with a test to get dimensions
+    
+    testscan = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(
+        basedir,scan_list[0],beam_list[0])
+    freqs,amp,phase = get_model(testscan)
+    model_amp_array = np.empty(amp.shape[0],amp.shape[1],int(scans.nscan))
+    model_phase_array = np.empty(phase.shape[0],phase.shape[1],int(scans.nscan))
+
+    #iterate through scans:
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        scan = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(
+            basedir,scan,beam)
+        freqs,amp,phase = get_model(scan)
+        model_amp_array[:,:,n] = amp
+        model_phase_array[:,:,n] = phase
+        
+    return freqs,model_amp_array,model_phase_array
+
+def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
+                            pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+    #plot model for each scan
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    (freqs,model_amp_array,
+     model_phase_array) = compare_scan_model(scans,obsrecordfile,
+                                             basedir)
+    #figure out plotmode
+    if plotmode == 'amp':
+        plotvals = model_amp_array
+        print 'plotting model amplitudes'
+    elif plotmode == 'phase':
+        plotvals = model_phase_array
+        print 'plotting model phases'
+    else:
+        print 'plotmode={} not defined'.format(plotmode)
+        
+    #now setup the plotting environment
+    #total number of plots is number of scans
+    nplots = len(scan_list)
+    ny = int(np.ceil(nplots/float(nx)))
+    xsize = nx*plotsize
+    ysize = ny*plotsize
+
+    if ymin == 0:
+        ymin = np.nanmin(plotvals)
+    if ymax == 0:
+        ymax = np.nanmax(plotvals)
+    xmin = np.nanmin(freqs)
+    xmax = np.nanmax(freqs)
+    
+    #create figure object
+    #this is what I return from program
+    fig= plt.figure(figsize=(xsize,ysize))
+    plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
+    plt.suptitle('Model {0}'.format(plotmode), fontsize='large')
+
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        plt.subplot(ny, nx, n+1)
+        plt.scatter(freqs,plotvals[:,pol],marker=',',s=0.5)
+        plt.title('{0}, beam {1}'.format(scan,beam))
+        plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
+        plt.ylim(ymin,ymax)
+        
+    return fig
+    
+            
 def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
                          refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
     #this will generate plots that compare BP solutions between beams
