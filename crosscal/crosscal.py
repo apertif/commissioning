@@ -597,8 +597,8 @@ def compare_scan_model(scans,obsrecordfile,basedir):
     testscan = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(
         basedir,scan_list[0],beam_list[0])
     freqs,amp,phase = get_model(testscan)
-    model_amp_array = np.empty(amp.shape[0],amp.shape[1],int(scans.nscan))
-    model_phase_array = np.empty(phase.shape[0],phase.shape[1],int(scans.nscan))
+    model_amp_array = np.empty((amp.shape[0],amp.shape[1],int(scans.nscan)))
+    model_phase_array = np.empty((phase.shape[0],phase.shape[1],int(scans.nscan)))
 
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
