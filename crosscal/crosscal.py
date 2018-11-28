@@ -617,7 +617,8 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         plt.subplot(ny, nx, n+1)
         for a,ant in enumerate(ant_names):
-            plt.plot(freqs[0,:], plotvals[a,:,0,n],label=ant)
+            plt.scatter(freqs[0,:], plotvals[a,:,0,n],label=ant,
+                       marker=',',s=0.5)
 #        for sol in range(plotvals.shape[2]):
 #            plt.plot(plotfreqs, (plotvals[a,:,sol] + np.full(plotvals.shape[1],offset*sol)))
         plt.title('{0}, beam {1}'.format(scan,beam))
