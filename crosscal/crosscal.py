@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 #define a class that is used for specifying the scans to be investigated
 
-"""CLASS definitions""""
+"""CLASS definitions"""
 
 class ScanSpecification(object):
     def __init__(self):
@@ -393,7 +393,7 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
             beam = beam_list[ind][0]
             refbpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
             #assumes naming convention in Apercal won't change!
-            ant_names,times,freqs,ref_amp_sol,ref_phase_sol = get_bp_sols(refbpsol)
+            ant_names,times,freqs,ref_amp_sol,ref_phase_sol,flags = get_bp_sols(refbpsol)
     
     #now iterate through each beam
     #will want to normalize by reference, if that option is set
@@ -401,23 +401,29 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
     #easy if I have reference, more difficult otherwise
     #So maybe just get first value as a test
     testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan_list[0],beam_list[0])
-    ant_names,times,freqs,amps,phases = get_bp_sols(testsol)
+    ant_names,times,freqs,amps,phases,flags = get_bp_sols(testsol)
     bp_amp_vals = np.empty((amps.shape[0],amps.shape[1],amps.shape[2],int(scans.nscan)))
     bp_phase_vals = np.empty((phases.shape[0],phases.shape[1],phases.shape[2],int(scans.nscan)))
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         bpsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
-        ant_names,times,freqs,amps,phases = get_bp_sols(bpsol)
+        ant_names,times,freqs,amps,phases,flags = get_bp_sols(bpsol)
         if norm == True:
             bp_amp = amps / ref_amp_sol
-            bp_phase = phases - ref_phase_sol #"nromalize" phase by subtracting - care about absolute deviation
+            bp_phase = phases - ref_phase_sol 
+            #"nromalize" phase by subtracting - care about absolute deviation
         else:
             bp_amp = amps
             bp_phase = phases
+        #check for flags and mask
+        bp_amp[flags] = np.nan
+        bp_phase[flags] = np.nan
+        #populate arrays
         bp_amp_vals[:,:,:,n] = bp_amp
         bp_phase_vals[:,:,:,n] = bp_phase * 180/np.pi #put in degrees
-        
+               
     return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
+
 
 def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
                          refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
