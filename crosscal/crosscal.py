@@ -513,16 +513,18 @@ def get_gain_sols(gaintable):
     
     amp_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
     phase_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+    flags_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=bool)
     
     for ant in xrange(len(ant_names)):
-        taql_command = ("SELECT abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0} " 
+        taql_command = ("SELECT abs(CPARAM) AS amp, arg(CPARAM) AS phase, FLAG FROM {0} " 
                         "WHERE ANTENNA1={1}").format(gaintable,ant)
         t = pt.taql(taql_command)
         amp_ant_array[ant,:,:] = t.getcol('amp')[:,0,:]
-        phase_ant_array[ant] = t.getcol('phase')[:,0,:]
+        phase_ant_array[ant,:,:] = t.getcol('phase')[:,0,:]
+        flags_ant_array[ant,:,:] = t.getcol('FLAG')[:,0,:]
 
-        
-    return ant_names,times,amp_ant_array,phase_ant_array
+    return ant_names,times,amp_ant_array,phase_ant_array,flags_ant_array
+
 
 def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan=''):
     #This will collect all gain solutions for a scan of beams
@@ -552,7 +554,8 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
             refsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
                 basedir,scan,beam)
             #assumes naming convention in Apercal won't change!
-            ant_names,times,amp_ant_array,phase_ant_array = get_gain_sols(refsol)
+            (ant_names,times,amp_ant_array,phase_ant_array,
+             flag_ant_array) = get_gain_sols(refsol)
             #average over time
             #have array of shape (nant,nstokes):
             refamp_ant_array = np.mean(amp_ant_array,axis=1)
@@ -578,65 +581,81 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
     """
     testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
         basedir,scan_list[0],beam_list[0])
-    ant_names,times,amp_sols,phase_sols = get_gain_sols(testsol)
+    ant_names,times,amp_sols,phase_sols,flags = get_gain_sols(testsol)
     gain_amp_vals = np.empty((amp_sols.shape[0],amp_sols.shape[1],
                               amp_sols.shape[2],int(scans.nscan)))
     gain_phase_vals = np.empty((phase_sols.shape[0],phase_sols.shape[1],
                                 phase_sols.shape[2],int(scans.nscan)))
     time_vals = np.empty((amp_sols.shape[1],int(scans.nscan)))
     ntimes = amp_sols.shape[1]
-    print gain_amp_vals.shape,time_vals.shape
     #iterate through scans:
     for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
         gainsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(
             basedir,scan,beam)
-        ant_names,times,amp_sols,phase_sols = get_gain_sols(gainsol)
+        ant_names,times,amp_sols,phase_sols,flags = get_gain_sols(gainsol)
         if norm == True:
             #check for length of time axis
             if len(times) == ntimes:
                 gain_amp = np.divide(amp_sols, refamp)
                 gain_phase = np.subtract(phase_sols,refphase)
                 gain_times = times
+                gain_flags = flags
                 #"nromalize" phase by subtracting - care about absolute deviation
             elif len(times) > ntimes:
                 gain_amp = np.divide(amp_sols[:,0:ntimes,:], refamp)
                 gain_phase = np.subtract(phase_sols[:,0:ntimes,:],refphase)
                 gain_times = times[0:ntimes]
+                gain_flags = flags[0:ntimes]
                 #"nromalize" phase by subtracting - care about absolute deviation
             else:
                 gain_amp = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
                                    np.nan)
                 gain_phase = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
                                      np.nan)
+                gain_flags = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
+                                     True)
                 gain_times = np.full(ntimes,np.nan)
                 gain_amp[:,0:len(times),:] = np.divide(amp_sols, refamp)
                 gain_phase[:,0:len(times),:] = np.subtract(phase_sols,refphase)
                 gain_times[0:len(times)] = times
+                gain_flags[:,0:len(times),:] = flags
         else:
             #check for length of time axis:
             if len(times) == ntimes:
                 gain_amp = amp_sols
                 gain_phase = phase_sols
                 gain_times = times
+                gain_flags = flags
             elif len(times) > ntimes:
                 gain_amp = amp_sols[:,0:ntimes,:]
                 gain_phase = phase_sols[:,0:ntimes,:]
                 gain_times = times[0:ntimes]
+                gain_flags = flags[0:ntimes]
             else:
                 gain_amp = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
                                    np.nan)
                 gain_phase = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
                                      np.nan)
+                gain_flags = np.full((amp_sols.shape[0],ntimes,amp_sols.shape[2]),
+                                      True)
                 gain_times = np.full(ntimes,np.nan)
                 gain_amp[:,0:len(times),:] = amp_sols
                 gain_phase[:,0:len(times),:] = phase_sols
                 gain_times[0:len(times)] = times
+                gain_flags[:,0:len(times),:] = flags
 
+        #find and replace flags
+        #print scan, gain_amp.shape,gain_flags.shape
+        gain_amp[gain_flags] = np.nan
+        gain_phase[gain_flags] = np.nan
+        #gain_times[gain_flags] = np.nan
+        #populate arrays
         gain_amp_vals[:,:,:,n] = gain_amp
         gain_phase_vals[:,:,:,n] = gain_phase * 180/np.pi #put in degrees
         time_vals[:,n] = gain_times
         
     return ant_names,time_vals,gain_amp_vals,gain_phase_vals
+
 
 def plot_compare_gain_beam(scans,obsrecordfile,basedir,
                            norm=True,refscan='',plotmode='amp',
