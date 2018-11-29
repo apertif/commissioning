@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 
 #define a class that is used for specifying the scans to be investigated
 
+"""CLASS definitions""""
+
 class ScanSpecification(object):
     def __init__(self):
         #set all attributes to empty strings to initialize
@@ -111,7 +113,7 @@ class ScanSpecification(object):
 
             
 
-
+"""Prepare data"""
 
 def get_scan_list(scans,obsrecordfile):
     #This takes a ScanObject that specifies the scans wanted
@@ -320,9 +322,7 @@ def flag_scans(scans,obsrecordfile,basedir,cfgfile,edges=True,ghosts=True):
 
 
     
-    
-
-    
+       
 def calibrate_scans(scans,obsrecordfile,basedir,cfgfile):
     #This will use scan_list,beam_list from get_scan_list
     #plus apercal.ccal to calibrate the data
@@ -342,16 +342,20 @@ def calibrate_scans(scans,obsrecordfile,basedir,cfgfile):
 
     
 
+"""Bandpass solutions"""    
+    
 def get_bp_sols(bptable):
     #takes a path to a BP solution table
     #This should also work for the delay table - same keyword and same structure (one row per ant)
     #Gain tables don't work - values per time
     #K tables don't work - FPARAM keyword
-    taql_command = "SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0}".format(bptable)
+    taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase, "
+                    "FLAG FROM {0}").format(bptable)
     t=pt.taql(taql_command)
     times = t.getcol('TIME')
     amp_sols=t.getcol('amp')
     phase_sols = t.getcol('phase')
+    flags = t.getcol('FLAG')
 
     taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(bptable)
     t= pt.taql(taql_antnames)
@@ -361,141 +365,7 @@ def get_bp_sols(bptable):
     t = pt.taql(taql_freq)
     freqs = t.getcol('CHAN_FREQ')
 
-    return ant_names,times,freqs,amp_sols,phase_sols
-
-def get_gain_sols(gaintable):
-    #takes path to an gain solution table
-    #returns amp,phase as function of time (no frequency info)
-    
-    #first get antenna names, need to iterate over later
-    taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(gaintable)
-    t= pt.taql(taql_antnames)
-    ant_names=t.getcol("NAME")
-    
-    #then get number of times
-    #need this for setting shape
-    taql_time =  "select TIME from {0} orderby unique TIME".format(gaintable)
-    t= pt.taql(taql_time)
-    times = t.getcol('TIME') 
-    
-    #then iterate over antenna
-    #set array sahpe to be [n_ant,n_time,n_stokes]
-    #how can I get n_stokes? Could be 2 or 4, want to find from data
-    #get 1 data entry
-    taql_stokes = "SELECT abs(CPARAM) AS amp from {0} limit 1" .format(gaintable)
-    t_pol = pt.taql(taql_stokes)
-    pol_array = t_pol.getcol('amp')
-    n_stokes = pol_array.shape[2] #shape is time, one, nstokes
-    
-    amp_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
-    phase_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
-    
-    for ant in xrange(len(ant_names)):
-        taql_command = ("SELECT abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0} " 
-                        "WHERE ANTENNA1={1}").format(gaintable,ant)
-        t = pt.taql(taql_command)
-        amp_ant_array[ant,:,:] = t.getcol('amp')[:,0,:]
-        phase_ant_array[ant] = t.getcol('phase')[:,0,:]
-
-        
-    return ant_names,times,amp_ant_array,phase_ant_array
-
-
-def get_model(msfile):
-    #take a MS file and get the model column
-    #average over baselines/times
-    #want amp/phase vs. frequency
-    taql_command = "SELECT abs(gmeans(MODEL_DATA)) AS amp, arg(gmeans(MODEL_DATA)) AS phase FROM {0}".format(msfile)
-    t = pt.taql(taql_command)
-    amp = t.getcol('amp')[0,:,:]
-    phase = t.getcol('phase')[0,:,:]
-    taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(msfile)
-    t = pt.taql(taql_freq)
-    freqs = t.getcol('CHAN_FREQ')[0,:]
-    
-    return freqs,amp,phase
-    
-def get_calibrated_data(msfile):
-    #first get antenna names, need to iterate over later
-    taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(msfile)
-    t= pt.taql(taql_antnames)
-    ant_names=t.getcol("NAME")
-
-    #then get frequencies:
-    taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(msfile)
-    t = pt.taql(taql_freq)
-    freqs = t.getcol('CHAN_FREQ')[0,:]
-    
-    #and number of stokes params
-    taql_stokes = "SELECT abs(DATA) AS amp from {0} limit 1" .format(msfile)
-    t_pol = pt.taql(taql_stokes)
-    pol_array = t_pol.getcol('amp')
-    n_stokes = pol_array.shape[2] #shape is time, one, nstokes
-    
-    #take MS file and get calibrated data
-    amp_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
-    phase_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
-    
-    for ant in xrange(len(ant_names)):
-        taql_command = ("SELECT abs(gmeans(CORRECTED_DATA)) AS amp, "
-                        "arg(gmeans(CORRECTED_DATA)) AS phase FROM {0} "
-                        "WHERE ANTENNA1!=ANTENNA2 && "
-                        "(ANTENNA1={1} || ANTENNA2={1})").format(msfile,ant)
-        t = pt.taql(taql_command)
-        test=t.getcol('amp')
-        amp_ant_array[ant,:,:] = t.getcol('amp')[0,:,:]
-        phase_ant_array[ant,:,:] = t.getcol('phase')[0,:,:]
-    
-    return ant_names,freqs,amp_ant_array,phase_ant_array
-
-
-def compare_scan_calibrated_data(scans,obsrecordfile,basedir,norm=True,refscan=''):
-    #can normalize to reference
-    #useful to see if there are systematic issues, but wouldn't expect taht
-    
-    #first, get scan and beam list:
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    
-    #check if want normalized solutions
-    #if so, get reference values
-    if norm == True:        
-        if refscan =='':
-            print 'Must provide a reference scan for normalization!'
-            print 'Setting normalization to False'
-            norm = False #set normalization to False since there is no ref scan
-            ref_amp = np.nan
-            ref_phase = np.nan
-        else:
-            print 'Will normalize solutions'
-            ind = np.where(str(refscan) == scan_list)[0]
-            scan = scan_list[ind][0]
-            beam = beam_list[ind][0]
-            ref = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(basedir,scan,beam)
-            #assumes naming convention in Apercal won't change!
-            ant_names,freqs,ref_amp,ref_phase = get_calibrated_data(ref)
-
-    #now iterate through each beam
-    #first set dimenstions
-    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(basedir,scan_list[0],beam_list[0])
-    ant_names,freqs,amps,phases = get_calibrated_data(testsol)
-    amp_vals = np.empty((amps.shape[0],amps.shape[1],amps.shape[2],int(scans.nscan)))
-    phase_vals = np.empty((phases.shape[0],phases.shape[1],phases.shape[2],int(scans.nscan)))
-    #iterate through scans:
-    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
-        data = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(basedir,scan,beam)
-        ant_names,freqs,amps,phases = get_calibrated_data(data)
-        if norm == True:
-            data_amp = amps / ref_amp
-            data_phase = phases - ref_phase #"nromalize" phase by subtracting - care about absolute deviation
-        else:
-            data_amp = amps
-            data_phase = phases
-
-        amp_vals[:,:,:,n] = data_amp
-        phase_vals[:,:,:,n] = data_phase * 180/np.pi #put in degrees
-        
-    return ant_names,freqs,amp_vals,phase_vals        
-            
+    return ant_names,times,freqs,amp_sols,phase_sols,flags
 
 def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
     #This will compare scan BP solutions to reference (given) for amp & phase 
@@ -548,6 +418,105 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
         bp_phase_vals[:,:,:,n] = bp_phase * 180/np.pi #put in degrees
         
     return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
+
+def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
+                         refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+    #this will generate plots that compare BP solutions between beams
+    #It can run with option amplitude or phase, default amp
+    #Defaults to showing pol 0, can also change
+    
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    (ant_names,times,freqs,
+     bp_amp_vals,bp_phase_vals) = compare_scan_solution_bp(scans,obsrecordfile,basedir,
+                                                           norm=norm,refscan=refscan)        
+    if plotmode == 'amp':
+        plotvals = bp_amp_vals
+        print 'plotting amplitude solutions'
+    elif plotmode == 'phase':
+        plotvals = bp_phase_vals
+        print 'plotting phase solutions'
+    else:
+        print 'plotmode={} not defined'.format(mode)
+    
+    #now setup the plotting environment
+    #total number of plots is number of scans
+    nplots = len(scan_list)
+    ny = int(np.ceil(nplots/float(nx)))
+    #and set up size that I will want
+    #say 3 inches per plot
+    xsize = nx*plotsize
+    ysize = ny*plotsize
+    #and I want global limits, for best comparison
+    #this could potentially change
+    #will have a total offset of 
+    if ymin == 0:
+        ymin = np.nanmin(plotvals)
+    if ymax == 0:
+        ymax = np.nanmax(plotvals)
+    xmin = np.nanmin(freqs)
+    xmax = np.nanmax(freqs)
+    
+    #create figure object
+    #this is what I return from program
+    fig= plt.figure(figsize=(xsize,ysize))
+    plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
+    plt.suptitle('Bandpass {0}, normalization {1}'.format(plotmode,norm), fontsize='large')
+
+
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        plt.subplot(ny, nx, n+1)
+        for a,ant in enumerate(ant_names):
+            plt.scatter(freqs[0,:], plotvals[a,:,0,n],label=ant,
+                       marker=',',s=0.5)
+#        for sol in range(plotvals.shape[2]):
+#            plt.plot(plotfreqs, (plotvals[a,:,sol] + np.full(plotvals.shape[1],offset*sol)))
+        plt.title('{0}, beam {1}'.format(scan,beam))
+        plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
+        plt.ylim(ymin,ymax)
+           
+    plt.legend()
+    
+    return fig
+
+
+"""Gain solutions"""
+
+def get_gain_sols(gaintable):
+    #takes path to an gain solution table
+    #returns amp,phase as function of time (no frequency info)
+    
+    #first get antenna names, need to iterate over later
+    taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(gaintable)
+    t= pt.taql(taql_antnames)
+    ant_names=t.getcol("NAME")
+    
+    #then get number of times
+    #need this for setting shape
+    taql_time =  "select TIME from {0} orderby unique TIME".format(gaintable)
+    t= pt.taql(taql_time)
+    times = t.getcol('TIME') 
+    
+    #then iterate over antenna
+    #set array sahpe to be [n_ant,n_time,n_stokes]
+    #how can I get n_stokes? Could be 2 or 4, want to find from data
+    #get 1 data entry
+    taql_stokes = "SELECT abs(CPARAM) AS amp from {0} limit 1" .format(gaintable)
+    t_pol = pt.taql(taql_stokes)
+    pol_array = t_pol.getcol('amp')
+    n_stokes = pol_array.shape[2] #shape is time, one, nstokes
+    
+    amp_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+    phase_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+    
+    for ant in xrange(len(ant_names)):
+        taql_command = ("SELECT abs(CPARAM) AS amp, arg(CPARAM) AS phase FROM {0} " 
+                        "WHERE ANTENNA1={1}").format(gaintable,ant)
+        t = pt.taql(taql_command)
+        amp_ant_array[ant,:,:] = t.getcol('amp')[:,0,:]
+        phase_ant_array[ant] = t.getcol('phase')[:,0,:]
+
+        
+    return ant_names,times,amp_ant_array,phase_ant_array
 
 def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan=''):
     #This will collect all gain solutions for a scan of beams
@@ -663,6 +632,81 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
         
     return ant_names,time_vals,gain_amp_vals,gain_phase_vals
 
+def plot_compare_gain_beam(scans,obsrecordfile,basedir,
+                           norm=True,refscan='',plotmode='amp',
+                           pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+    #this will generate plots that compare BP solutions between beams
+    #It can run with option amplitude or phase, default amp
+    #Defaults to showing pol 0, can also change
+    
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    (ant_names,time_vals,gain_amp_vals,
+     gain_phase_vals) = compare_scan_solution_gain(scans,
+                                                   obsrecordfile,
+                                                   basedir,norm=norm,
+                                                   refscan=refscan)
+
+    if plotmode == 'amp':
+        plotvals = gain_amp_vals
+        print 'plotting amplitude solutions'
+    elif plotmode == 'phase':
+        plotvals = gain_phase_vals
+        print 'plotting phase solutions'
+    else:
+        print 'plotmode={} not defined'.format(mode)
+    
+    #now setup the plotting environment
+    #total number of plots is number of scans
+    nplots = len(scan_list)
+    ny = int(np.ceil(nplots/float(nx)))
+    #and set up size that I will want
+    #say 3 inches per plot
+    xsize = nx*plotsize
+    ysize = ny*plotsize
+    #and I want global limits, for best comparison
+    #this could potentially change
+    #will have a total offset of 
+    if ymin == 0:
+        ymin = np.nanmin(plotvals)
+    if ymax == 0:
+        ymax = np.nanmax(plotvals)
+    
+    #create figure object
+    #this is what I return from program
+    fig= plt.figure(figsize=(xsize,ysize))
+    plt.suptitle('Gain {0}, normalization {1}'.
+                 format(plotmode,norm), fontsize='large')
+
+
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        plt.subplot(ny, nx, n+1)
+        for a,ant in enumerate(ant_names):
+            plt.plot(time_vals[:,n], plotvals[a,:,pol,n],label=ant)
+#        for sol in range(plotvals.shape[2]):
+#            plt.plot(plotfreqs, (plotvals[a,:,sol] + np.full(plotvals.shape[1],offset*sol)))
+        plt.title('{0}, beam {1}'.format(scan,beam))
+        plt.ylim(ymin,ymax)
+           
+    plt.legend()
+    
+    return fig
+
+
+"""Model data"""
+
+def get_model(msfile):
+    #take a MS file and get the model column
+    #average over baselines/times
+    #want amp/phase vs. frequency
+    taql_command = "SELECT abs(gmeans(MODEL_DATA)) AS amp, arg(gmeans(MODEL_DATA)) AS phase FROM {0}".format(msfile)
+    t = pt.taql(taql_command)
+    amp = t.getcol('amp')[0,:,:]
+    phase = t.getcol('phase')[0,:,:]
+    taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(msfile)
+    t = pt.taql(taql_freq)
+    freqs = t.getcol('CHAN_FREQ')[0,:]
+    
+    return freqs,amp,phase
 
 def compare_scan_model(scans,obsrecordfile,basedir):
     #take a scan object and get the model for each observation
@@ -736,126 +780,90 @@ def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
         
     return fig
     
+    
+"""Calibrated data"""
+
+def get_calibrated_data(msfile):
+    #first get antenna names, need to iterate over later
+    taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(msfile)
+    t= pt.taql(taql_antnames)
+    ant_names=t.getcol("NAME")
+
+    #then get frequencies:
+    taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(msfile)
+    t = pt.taql(taql_freq)
+    freqs = t.getcol('CHAN_FREQ')[0,:]
+    
+    #and number of stokes params
+    taql_stokes = "SELECT abs(DATA) AS amp from {0} limit 1" .format(msfile)
+    t_pol = pt.taql(taql_stokes)
+    pol_array = t_pol.getcol('amp')
+    n_stokes = pol_array.shape[2] #shape is time, one, nstokes
+    
+    #take MS file and get calibrated data
+    amp_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
+    phase_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
+    
+    for ant in xrange(len(ant_names)):
+        taql_command = ("SELECT abs(gmeans(CORRECTED_DATA)) AS amp, "
+                        "arg(gmeans(CORRECTED_DATA)) AS phase FROM {0} "
+                        "WHERE ANTENNA1!=ANTENNA2 && "
+                        "(ANTENNA1={1} || ANTENNA2={1})").format(msfile,ant)
+        t = pt.taql(taql_command)
+        test=t.getcol('amp')
+        amp_ant_array[ant,:,:] = t.getcol('amp')[0,:,:]
+        phase_ant_array[ant,:,:] = t.getcol('phase')[0,:,:]
+    
+    return ant_names,freqs,amp_ant_array,phase_ant_array
+
+
+def compare_scan_calibrated_data(scans,obsrecordfile,basedir,norm=True,refscan=''):
+    #can normalize to reference
+    #useful to see if there are systematic issues, but wouldn't expect taht
+    
+    #first, get scan and beam list:
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    
+    #check if want normalized solutions
+    #if so, get reference values
+    if norm == True:        
+        if refscan =='':
+            print 'Must provide a reference scan for normalization!'
+            print 'Setting normalization to False'
+            norm = False #set normalization to False since there is no ref scan
+            ref_amp = np.nan
+            ref_phase = np.nan
+        else:
+            print 'Will normalize solutions'
+            ind = np.where(str(refscan) == scan_list)[0]
+            scan = scan_list[ind][0]
+            beam = beam_list[ind][0]
+            ref = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(basedir,scan,beam)
+            #assumes naming convention in Apercal won't change!
+            ant_names,freqs,ref_amp,ref_phase = get_calibrated_data(ref)
+
+    #now iterate through each beam
+    #first set dimenstions
+    testsol = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(basedir,scan_list[0],beam_list[0])
+    ant_names,freqs,amps,phases = get_calibrated_data(testsol)
+    amp_vals = np.empty((amps.shape[0],amps.shape[1],amps.shape[2],int(scans.nscan)))
+    phase_vals = np.empty((phases.shape[0],phases.shape[1],phases.shape[2],int(scans.nscan)))
+    #iterate through scans:
+    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
+        data = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(basedir,scan,beam)
+        ant_names,freqs,amps,phases = get_calibrated_data(data)
+        if norm == True:
+            data_amp = amps / ref_amp
+            data_phase = phases - ref_phase #"nromalize" phase by subtracting - care about absolute deviation
+        else:
+            data_amp = amps
+            data_phase = phases
+
+        amp_vals[:,:,:,n] = data_amp
+        phase_vals[:,:,:,n] = data_phase * 180/np.pi #put in degrees
+        
+    return ant_names,freqs,amp_vals,phase_vals        
             
-def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
-                         refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
-    #this will generate plots that compare BP solutions between beams
-    #It can run with option amplitude or phase, default amp
-    #Defaults to showing pol 0, can also change
-    
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    (ant_names,times,freqs,
-     bp_amp_vals,bp_phase_vals) = compare_scan_solution_bp(scans,obsrecordfile,basedir,
-                                                           norm=norm,refscan=refscan)        
-    if plotmode == 'amp':
-        plotvals = bp_amp_vals
-        print 'plotting amplitude solutions'
-    elif plotmode == 'phase':
-        plotvals = bp_phase_vals
-        print 'plotting phase solutions'
-    else:
-        print 'plotmode={} not defined'.format(mode)
-    
-    #now setup the plotting environment
-    #total number of plots is number of scans
-    nplots = len(scan_list)
-    ny = int(np.ceil(nplots/float(nx)))
-    #and set up size that I will want
-    #say 3 inches per plot
-    xsize = nx*plotsize
-    ysize = ny*plotsize
-    #and I want global limits, for best comparison
-    #this could potentially change
-    #will have a total offset of 
-    if ymin == 0:
-        ymin = np.nanmin(plotvals)
-    if ymax == 0:
-        ymax = np.nanmax(plotvals)
-    xmin = np.nanmin(freqs)
-    xmax = np.nanmax(freqs)
-    
-    #create figure object
-    #this is what I return from program
-    fig= plt.figure(figsize=(xsize,ysize))
-    plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
-    plt.suptitle('Bandpass {0}, normalization {1}'.format(plotmode,norm), fontsize='large')
-
-
-    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
-        plt.subplot(ny, nx, n+1)
-        for a,ant in enumerate(ant_names):
-            plt.scatter(freqs[0,:], plotvals[a,:,0,n],label=ant,
-                       marker=',',s=0.5)
-#        for sol in range(plotvals.shape[2]):
-#            plt.plot(plotfreqs, (plotvals[a,:,sol] + np.full(plotvals.shape[1],offset*sol)))
-        plt.title('{0}, beam {1}'.format(scan,beam))
-        plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
-        plt.ylim(ymin,ymax)
-           
-    plt.legend()
-    
-    return fig
-
-def plot_compare_gain_beam(scans,obsrecordfile,basedir,
-                           norm=True,refscan='',plotmode='amp',
-                           pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
-    #this will generate plots that compare BP solutions between beams
-    #It can run with option amplitude or phase, default amp
-    #Defaults to showing pol 0, can also change
-    
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    (ant_names,time_vals,gain_amp_vals,
-     gain_phase_vals) = compare_scan_solution_gain(scans,
-                                                   obsrecordfile,
-                                                   basedir,norm=norm,
-                                                   refscan=refscan)
-
-    if plotmode == 'amp':
-        plotvals = gain_amp_vals
-        print 'plotting amplitude solutions'
-    elif plotmode == 'phase':
-        plotvals = gain_phase_vals
-        print 'plotting phase solutions'
-    else:
-        print 'plotmode={} not defined'.format(mode)
-    
-    #now setup the plotting environment
-    #total number of plots is number of scans
-    nplots = len(scan_list)
-    ny = int(np.ceil(nplots/float(nx)))
-    #and set up size that I will want
-    #say 3 inches per plot
-    xsize = nx*plotsize
-    ysize = ny*plotsize
-    #and I want global limits, for best comparison
-    #this could potentially change
-    #will have a total offset of 
-    if ymin == 0:
-        ymin = np.nanmin(plotvals)
-    if ymax == 0:
-        ymax = np.nanmax(plotvals)
-    
-    #create figure object
-    #this is what I return from program
-    fig= plt.figure(figsize=(xsize,ysize))
-    plt.suptitle('Gain {0}, normalization {1}'.
-                 format(plotmode,norm), fontsize='large')
-
-
-    for n,(scan,beam) in enumerate(zip(scan_list,beam_list)):
-        plt.subplot(ny, nx, n+1)
-        for a,ant in enumerate(ant_names):
-            plt.plot(time_vals[:,n], plotvals[a,:,pol,n],label=ant)
-#        for sol in range(plotvals.shape[2]):
-#            plt.plot(plotfreqs, (plotvals[a,:,sol] + np.full(plotvals.shape[1],offset*sol)))
-        plt.title('{0}, beam {1}'.format(scan,beam))
-        plt.ylim(ymin,ymax)
-           
-    plt.legend()
-    
-    return fig
-
-
 
 def plot_compare_calibrated_data_beam(scans,obsrecordfile,basedir,norm=True,
                                       refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
