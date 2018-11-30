@@ -830,10 +830,12 @@ def get_calibrated_data(msfile):
     phase_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
     
     for ant in xrange(len(ant_names)):
-        taql_command = ("SELECT abs(gmeans(CORRECTED_DATA)) AS amp, "
-                        "arg(gmeans(CORRECTED_DATA)) AS phase FROM {0} "
+        taql_command = ("SELECT abs(gmeans(CORRECTED_DATA[FLAG])) AS amp, "
+                        #"gmeans(FLAG), "
+                        "arg(gmeans(CORRECTED_DATA[FLAG])) AS phase FROM {0} "
                         "WHERE ANTENNA1!=ANTENNA2 && "
                         "(ANTENNA1={1} || ANTENNA2={1})").format(msfile,ant)
+        #use FLAG as mask to only use unflagged data
         t = pt.taql(taql_command)
         test=t.getcol('amp')
         amp_ant_array[ant,:,:] = t.getcol('amp')[0,:,:]
