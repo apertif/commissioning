@@ -296,7 +296,7 @@ def fix_source_name(scans,obsrecordfile,basedir,flip=False,unflip=False):
         name_split = name.split('_') #split by underscore - works also if no underscore
         t_field.putcell("NAME", 0, name_split[0])  #update source name to anything before first underscore (or original name if no underscore)
         t_field.flush()
-        if flip == True && unflip == True:
+        if (flip == True) and (unflip == True):
             print "Both flipping and unflipping. No net change"
         if flip == True:
             aputil.flip_ra(msfile)
@@ -350,7 +350,17 @@ def calibrate_scans(scans,obsrecordfile,basedir,cfgfile):
         print "Calibrating data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,ccal.basedir)
         ccal.go()
 
- 
+def clear_calibration_scans(scans,obsrecordfile,basedir,cfgfile):  
+    #this will clear calibration solution
+    #that way can rerun w/out having to redo everything
+    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+    
+    #load ccal module
+    ccal = apercal.ccal(cfgfile)
+    for scan,beam in zip(scan_list,beam_list):
+        ccal.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+        ccal.basedir = "{0}/{1}/".format(basedir,scan)
+        ccal.clear()
 
 """Bandpass solutions"""    
     
