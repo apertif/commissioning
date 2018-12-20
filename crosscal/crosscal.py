@@ -300,7 +300,7 @@ def fix_source_name(scans,obsrecordfile,basedir,flip=False,unflip=False):
             print "Both flipping and unflipping. No net change"
         if flip == True:
             aputil.flip_ra(msfile)
-        if unflip == False:
+        if unflip == True:
             aputil.unflip_ra(msfile)
     
     
