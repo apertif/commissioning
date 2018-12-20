@@ -7,7 +7,8 @@ import os
 import numpy as np
 from astropy.io import ascii
 import sys
-sys.path.append('/home/adams/altadata')
+sys.path.append('/home/adams/commissioning/general')
+import apertif_utility as aputil
 import apercal
 import casacore.tables as pt
 import matplotlib.pyplot as plt
@@ -278,11 +279,14 @@ def copy_scans(scans,obsrecordfile,basedir,run=False):
             os.system(string_command)
             print 'Running '+string_command
 
-def fix_source_name(scans,obsrecordfile,basedir):
+def fix_source_name(scans,obsrecordfile,basedir,flip=False,unflip=False):
     #Source names have beam in them (critical for get_scans!)
     #But that will cause calibration to crash
     #CASA isn't very smart
     #So I'll have to be smart instead and update everything
+    #I'll also give option here of flipping coordinates
+    #Since I'm already messing w/ MS, this seems appropriate place to do so.
+    #and will also include unflip flag, in case I mess things up
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     for scan,beam in zip(scan_list,beam_list):
         targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
@@ -292,6 +296,12 @@ def fix_source_name(scans,obsrecordfile,basedir):
         name_split = name.split('_') #split by underscore - works also if no underscore
         t_field.putcell("NAME", 0, name_split[0])  #update source name to anything before first underscore (or original name if no underscore)
         t_field.flush()
+        if flip == True && unflip == True:
+            print "Both flipping and unflipping. No net change"
+        if flip == True:
+            aputil.flip_ra(msfile)
+        if unflip == False:
+            aputil.unflip_ra(msfile)
     
     
 def flag_scans(scans,obsrecordfile,basedir,cfgfile,edges=True,ghosts=True):
@@ -340,7 +350,7 @@ def calibrate_scans(scans,obsrecordfile,basedir,cfgfile):
         print "Calibrating data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,ccal.basedir)
         ccal.go()
 
-    
+ 
 
 """Bandpass solutions"""    
     
