@@ -446,7 +446,8 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
 
 
 def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
-                         refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+                         refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
+                        figname=''):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
@@ -502,6 +503,9 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
            
     plt.legend()
     
+    if figname != '':
+        plt.savefig(figname)
+        
     return fig
 
 
@@ -679,7 +683,8 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
 
 def plot_compare_gain_beam(scans,obsrecordfile,basedir,
                            norm=True,refscan='',plotmode='amp',
-                           pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+                           pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
+                          figname=''):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
@@ -734,6 +739,9 @@ def plot_compare_gain_beam(scans,obsrecordfile,basedir,
            
     plt.legend()
     
+    if figname != '':
+        plt.savefig(figname)
+    
     return fig
 
 
@@ -780,7 +788,8 @@ def compare_scan_model(scans,obsrecordfile,basedir):
     return freqs,model_amp_array,model_phase_array
 
 def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
-                            pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+                            pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
+                           figname=''):
     #plot model for each scan
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     (freqs,model_amp_array,
@@ -822,6 +831,9 @@ def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
         plt.title('{0}, beam {1}'.format(scan,beam))
         plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
         plt.ylim(ymin,ymax)
+        
+    if figname != '':
+        plt.savefig(figname)
         
     return fig
     
@@ -913,7 +925,8 @@ def compare_scan_calibrated_data(scans,obsrecordfile,basedir,norm=True,refscan='
             
 
 def plot_compare_calibrated_data_beam(scans,obsrecordfile,basedir,norm=True,
-                                      refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4):
+                                      refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
+                                     figname=''):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
@@ -967,6 +980,9 @@ def plot_compare_calibrated_data_beam(scans,obsrecordfile,basedir,norm=True,
         plt.ylim(ymin,ymax)
            
     plt.legend()
+    
+    if figname != '':
+        plt.savefig(figname)
     
     return fig
 
