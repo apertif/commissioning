@@ -37,7 +37,7 @@ def flip_ra(msfile):
     #This means that can run this code on a MS multiple times and it will work
     string_delay = format_phasedir(delaydir)
     string_phase = format_phasedir(newphasedir)
-    print 'For beam {0} the delay directions {1} and the new phase direction is {2}'.format(beam,string_delay,string_phase)
+    print 'The delay direction is {0} and the new phase direction is {1}'.format(string_delay,string_phase)
     print ''
     #print to check against delay direction
     
@@ -61,7 +61,7 @@ def unflip_ra(msfile):
     #This means that can run this code on a MS multiple times and it will work
     string_delay = format_phasedir(delaydir)
     string_phase = format_phasedir(newphasedir)
-    print 'For beam {0} the delay directions {1} and the new phase direction is {2}'.format(beam,string_delay,string_phase)
+    print 'The delay direction is {0} and the new phase direction is {1}'.format(string_delay,string_phase)
     print ''
     #print to check against delay direction and make sure is the same
     
