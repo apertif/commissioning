@@ -10,3 +10,6 @@ The structure of this repository is: <br>
 ->Commissioning tasks<br>
 -->python modules for the task, tutorial notebook<br>
 --->testing: notebooks run on datasets to complete the commissioning tasks
+
+## Notes on cross-calibration commissioning task
+19 February 2019: Starting a massive update to rework code to rely on atdbquery and use observations in ATDB for undertaking the task. Tag the existing version as preatdb.
