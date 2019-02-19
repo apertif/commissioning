@@ -12,6 +12,8 @@ import apertif_utility as aputil
 import apercal
 import casacore.tables as pt
 import matplotlib.pyplot as plt
+sys.path.append('/home/adams/atdbquery')
+from atdbquery import atdbquery
 
 #define a class that is used for specifying the scans to be investigated
 
@@ -464,6 +466,9 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
         print 'plotting phase solutions'
     else:
         print 'plotmode={} not defined'.format(mode)
+        
+    print np.nanmin(bp_amp_vals),np.nanmax(bp_amp_vals)
+    print np.nanmin(bp_phase_vals),np.nanmax(bp_phase_vals)
     
     #now setup the plotting environment
     #total number of plots is number of scans
@@ -503,10 +508,11 @@ def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
            
     plt.legend()
     
-    if figname != '':
+    if figname == '':
+        return fig
+    else:
         plt.savefig(figname)
         
-    return fig
 
 
 """Gain solutions"""
@@ -739,10 +745,10 @@ def plot_compare_gain_beam(scans,obsrecordfile,basedir,
            
     plt.legend()
     
-    if figname != '':
+    if figname == '':
+        return fig
+    else:
         plt.savefig(figname)
-    
-    return fig
 
 
 """Model data"""
@@ -832,11 +838,12 @@ def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
         plt.xlim(xmin,xmax) # Limit the plot to the minimum and maximum frequencies
         plt.ylim(ymin,ymax)
         
-    if figname != '':
+    if figname == '':
+        return fig
+    else:
         plt.savefig(figname)
         
-    return fig
-    
+
     
 """Calibrated data"""
 
@@ -934,6 +941,8 @@ def plot_compare_calibrated_data_beam(scans,obsrecordfile,basedir,norm=True,
     mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     ant_names,freqs,amp_vals,phase_vals = compare_scan_calibrated_data(scans,obsrecordfile,basedir,
                                                                        norm=norm,refscan=refscan)        
+    print np.min(amp_vals),np.max(amp_vals)
+    
     if plotmode == 'amp':
         plotvals = amp_vals
         print 'plotting amplitude solutions'
@@ -981,7 +990,9 @@ def plot_compare_calibrated_data_beam(scans,obsrecordfile,basedir,norm=True,
            
     plt.legend()
     
-    if figname != '':
+    if figname == '':
+        return fig
+    else:
         plt.savefig(figname)
     
     return fig
