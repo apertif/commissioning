@@ -12,4 +12,4 @@ The structure of this repository is: <br>
 --->testing: notebooks run on datasets to complete the commissioning tasks
 
 ## Notes on cross-calibration commissioning task
-19 February 2019: Starting a massive update to rework code to rely on atdbquery and use observations in ATDB for undertaking the task. Tag the existing version as preatdb.
+19 February 2019: Starting a massive update to rework code to rely on atdbquery and use observations in ATDB for undertaking the task. Tag the existing version as v1.0.
