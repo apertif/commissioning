@@ -14,6 +14,7 @@ import casacore.tables as pt
 import matplotlib.pyplot as plt
 sys.path.append('/home/adams/atdbquery')
 from atdbquery import atdbquery
+from datetime import datetime
 
 
 
@@ -50,6 +51,7 @@ def get_switching_scan_dict(maxint = 7,nskip = 1, nswitch = 30):
     #then iterate through lists to parse into subsets of switching scans
     tmpscanlist=[]
     tmpnamelist=[]
+    tmpobslist = []
     for scan,name in zip(sorted_scan,sorted_name):
         name_split = name.split('_') #break name down, can check if it has right structure
         #check if name has right structure, if not, skip (test obs, don't care)
@@ -62,92 +64,140 @@ def get_switching_scan_dict(maxint = 7,nskip = 1, nswitch = 30):
                     if len(tmpscanlist) >= nswitch:
                         #if so, check if long enough to add as dictionary of scans
                         keyname = tmpscanlist[0] +"_"+ tmpnamelist[0] #scan w/ calibrator
-                        switching_scan_dict[keyname] = tmpscanlist
+                        switching_scan_dict[keyname] = tmpobslist
                     #and reset lists if sequenc is broken
+                    #scanlist is really scan plus beam
+                    obs = scan+'_'+name_split[1]
                     tmpscanlist = [scan]
+                    tmpobslist = [obs]
                     tmpnamelist=[name_split[0]]
                 else: #if still in sequence, append
+                    obs = scan+'_'+name_split[1]
                     tmpscanlist.append(scan)
+                    tmpobslist.append(obs)
                     tmpnamelist.append(name_split[0])
             else: #else populate the list
+                obs = scan+'_'+name_split[1]
                 tmpscanlist = [scan]
+                tmpobslist = [obs]
                 tmpnamelist = [name_split[0]]
             
   
     #nicely format dictionary
     print 'First scan, number in switch'
-    for key in switching_scan_dict:
+    for key in sorted(switching_scan_dict):
         print '{0}  {1}'.format(key,len(switching_scan_dict[key]))
     
     return switching_scan_dict
 
 
-def copy_scans(scans,obsrecordfile,basedir,run=False):
+def copy_switching_scans(scan_dict,basedir,scanset=None,mode='single',run=False):
     #This will use the output of get_scan_list 
-    #to retrieve data from ALTA and move to targetdest
-    #I will take same input as get_scan_list and run it here
-    #Want to minimize number of calls by user
-    #Maybe the proper way to do this is to have global variables, 
-    #But that's a step too complicated for me, I think
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    #get the values I need
+    #Use scan_dict to find files for copying over
+    #basedir is base location to copy to
+    #optional keywords:
+    #scanset = None, automatically use latest scan (mode='single')
+    #or all scans (mode='multiple')
+    #scanset can also be a string (with mode='single') 
+    #or it can be a list of strings (with mode='multiple') to plot just those scans
     
-    #get the data
     
-
+    #check whether or not execute commands
     if run==False:
         print 'In verification mode, will print commands to screen'
     elif run==True:
         print 'In running mode, will execute commands'
     else:
-        print 'Mode is not defined. Choose verify or run'
+        print 'run value must be True or False'
     
-    #now iterate through scan/beam lists and run command to retrieve data
-    
-    for scan,beam in zip(scan_list,beam_list):
-        #first, move into targetdest (create if needed)
-        #need a separate directory for each dataset
-        #bleh
-        #name by scan number (best for when I add other mode)
-        targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
-        if os.path.exists(targetdir):
-            pass
+    #Check the mode and scanset specification to figure out how much/what data getting
+    #start with 'single' swithcing scan
+    #find most recent set and get list of all - useful            
+    keylist = []
+    for key in sorted(scan_dict):
+        keylist.append(key)
+    lastset=keylist[-1]
+    if mode == 'single':        
+        if scanset != None:
+            if scanset in keylist:
+                scanset=[scanset]
+            else:
+                print '{} not in switching scan dict'.format(scanset)
+                print 'Using last switching scan instead'
+                scanset = [lastset]
         else:
-            os.makedirs(targetdir)
-        #then change to working directory to copy data
-        #think this is how the usage of ALTA data module from Vanessa is
-        os.chdir(targetdir)
-        print 'Moved to and copying data to {0}'.format(os.getcwd())
+            print 'Using last switching as default'
+            scanset = [lastset]
+    elif mode == 'multiple':
+        if scanset == None:
+            print 'Using all switching scans'
+            scanset = keylist
+        elif type(scanset) != list:
+            print 'Must specify multiple scan sets in multiple mode'
+            print 'Using all switching scans as default'
+            scanset = keylist
+        elif len(scanset) < 2:
+            print 'Must specify multiple scan sets in multiple mode'
+            print 'Using all switching scans as default'
+            scanset = keylist
+        elif all(elem in keylist for elem in scanset):
+            scanset = scanset
+        else:
+            print 'Not all items in scanset contained in dictionary'
+            print 'Using all scans by default'
+            scanset = keylist
+    else:
+        print "mode must be 'single' or 'multiple'"
+    #print scanset
     
-        #first parse scan as required:
-        scandate = scan[0:6]
-        scannum = scan[6:9]
-        #format string command to match usage:
+    for scankey in scanset:
+        #go through all the scans:
+        for obs in scan_dict[scankey]:
+            #parse scan_beam into scan,beam
+            obs_split = obs.split('_')
+            scan = obs_split[0]
+            beam = obs_split[1]
+            #first, move into targetdest (create if needed)
+            #need a separate directory for each dataset
+            #bleh
+            #name by scan number (best for when I add other mode)
+            targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
+            if os.path.exists(targetdir):
+                pass
+            else:
+                os.makedirs(targetdir)
+            #then change to working directory to copy data
+            #think this is how the usage of ALTA data module from Vanessa is
+            os.chdir(targetdir)
+            print 'Moved to and copying data to {0}'.format(os.getcwd())
+    
+            #first parse scan as required:
+            scandate = scan[0:6]
+            scannum = scan[6:9]
+            #format string command to match usage:
             # ALTA data transfer: Uses the iROD client to transfer data from ALTA
             # Example usage: >> python getdata_alta.py 180316 004-010 00-36
             # V.A. Moss (vmoss.astro@gmail.com)
-        #hope is that since I did sys.path.append('/home/adams/altadata'),
-        #I don't have to specify full path
-        string_command = "python /home/adams/altadata/getdata_alta.py {0} {1}-{1} {2:0>2}-{2:0>2}".format(scandate,scannum,beam)
-        #!!!!!!!Important question - do I have specify beams with double integers?
-        #Thayt's annoying because it doesn't match naming scheme
-        #But maybe I can do with format - yep!
-        #check if data already exists - if it does, don't do anything (set run=False to print to screen)
-        filename = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-        filerun = True
-        if os.path.exists(filename):
-            filerun=False #file exists, so don't need to copy again            
-        if run==False:
-            print string_command
-        if filerun == False:
-            print 'File already exists'
-            #reset filerun
-            filerun=True
-        elif run==True:
-            #and run the command:
-            os.system(string_command)
-            print 'Running '+string_command
+            string_command = "python /home/adams/altadata/getdata_alta.py {0} {1}-{1} {2:0>2}-{2:0>2}".format(scandate,scannum,beam)
+            #Have to specify beam w/ double integers
+            #But maybe I can do with format - yep!
+            #check if data already exists - if it does, don't do anything (set run=False to print to screen)
+            filename = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+            filerun = True
+            if os.path.exists(filename):
+                filerun=False #file exists, so don't need to copy again            
+            if run==False:
+                print string_command
+            if filerun == False:
+                print 'File already exists'
+                #reset filerun
+                filerun=True
+            elif run==True:
+                #and run the command:
+                os.system(string_command)
+                print 'Running '+string_command
 
+                
 def fix_source_name(scans,obsrecordfile,basedir,flip=False,unflip=False):
     #Source names have beam in them (critical for get_scans!)
     #But that will cause calibration to crash
