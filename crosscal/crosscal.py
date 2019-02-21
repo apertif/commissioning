@@ -15,204 +15,71 @@ import matplotlib.pyplot as plt
 sys.path.append('/home/adams/atdbquery')
 from atdbquery import atdbquery
 
-#define a class that is used for specifying the scans to be investigated
 
-"""CLASS definitions"""
-
-class ScanSpecification(object):
-    def __init__(self):
-        #set all attributes to empty strings to initialize
-        #that way I can check for what is set later
-        self.startdate=''
-        self.enddate=''
-        self.beam=''
-        self.startscan=''
-        self.endscan=''
-        self.nscan=''
-        self.badscans = ''
-    def setstartdate(self,sd):
-        #want to do some checking that startdate is in the right format
-        #turn into a string
-        sdstr=str(sd)
-        if len(sdstr) != 8:
-            print "Startdate must be  of format 'YYYYMMDD'"
-        elif sdstr[0:3] != '201':
-            print "Startdate must be a string of format 'YYYYMMDD', starting from 2010"
-        else:
-            self.startdate=sdstr
-    def setenddate(self,ed):
-        edstr=str(ed)
-        if len(edstr) != 8:
-            print "Enddate must be of format 'YYYYMMDD'"
-        elif edstr[0:3] != '201':
-            print "Enddate must be of format 'YYYYMMDD', starting from 2010"
-        else:
-            self.enddate = edstr
-    def setbeam(self,bm):
-        bmstr=str(bm)
-        if len(bmstr) == 1:
-            newbmstr = '{0}{1}'.format(0,bmstr)
-            self.beam = newbmstr
-        elif float(bmstr) != int(float(bmstr)):
-            print "Beam must be an integer"
-        elif len(bmstr) != 2:
-            print "Beam must be of format 'NN'"
-        elif float(bmstr) >39 or float(bmstr) <0:
-            print "Beam must be an integer between 0 and 39"
-        else:
-            self.beam = bmstr
-    def setstartscan(self,stsc):
-        scstr = str(stsc)
-        #Assume format is YYMMDDXXX 
-        #this is valid from Feb 2018
-        #Jan and earlier had only two scan numbers
-        #I think just focusing on that date range (at least to start) is okay
-        if len(scstr) != 9:
-            print "Start scan must be of format 'YYMMDDXXX'"
-        elif scstr[0:2] != '18': #can add more years later if need be
-            print "Start scan must be of format 'YYMMDDXXX', with a year of 18"
-        else:
-            self.startscan = scstr
-    def setendscan(self,edsc):
-        scstr = str(edsc)
-        #Assume format is YYMMDDXXX 
-        #this is valid from Feb 2018
-        #Jan and earlier had only two scan numbers
-        #I think just focusing on that date range (at least to start) is okay
-        if len(scstr) != 9:
-            print "Start scan must be of format 'YYMMDDXXX'"
-        elif scstr[0:2] != '18': #can add more years later if need be
-            print "Start scan must be of format 'YYMMDDXXX', with a year of 18"
-        else:
-            self.endscan = scstr    
-    def setnscan(self,ns):
-        nsstr = str(ns)
-        #want to check if it is a number
-        #but doesn't work how I expect
-        try:
-            float(nsstr)
-            if float(nsstr) == int(float(nsstr)):
-                self.nscan = nsstr
-            else:
-                new_ns = str(int(float(nsstr)))
-                self.nscan = new_ns
-        except ValueError:
-            print 'nscan must be a number'
-    def setbadscans(self,badscanlist):
-        if type(badscanlist) is list:
-            newbadscanlist = []
-            for badsc in badscanlist:
-                #check each element of list
-                badscstr = str(badsc)
-                if len(badscstr) != 9:
-                    print "Bad scan must be of format 'YYMMDDXXX'"
-                elif badscstr[0:2] != '18': #can add more years later if need be
-                    print "Bad scan must be of format 'YYMMDDXXX', with a year of 18"
-                else:
-                    newbadscanlist.append(badscstr)
-            self.badscans = newbadscanlist  #new list is strings and only has properly formatted scans                
-        else:
-            print "Bad scans must be provided as a list"
-
-            
 
 """Prepare data"""
 
-def get_scan_list(scans,obsrecordfile):
-    #This takes a ScanObject that specifies the scans wanted
-    #Use this information to produce a scan and beam list
-    #All data is on ALTA now, so need to search there
-    #ATDB is not yet up to the task, so use Apertif Observation Record
-    #provide this as a specific input in csv format
-    
-    #provide a list of bad scans for failed data
-    #these will be skipped in creating lists
-    
-    #first, read the observation record in:
-    print 'Reminder: Make sure observation record is up-to-date!' #reminder
-    obsrecord = ascii.read(obsrecordfile)
-
-    #start by checking for different modes of operation
-    #two modes will be 
-    #(1) switch: for beam switchign observations in a row
-    #(2) variability: for tracking long-term variability in a given scan
-    if scans.startdate != '':
-        if scans.enddate != '':
-            if scans.beam != '':
-                mode = 'variability'
-                print 'In variability scan mode'
-            else:
-                print 'Variability mode is missing a beam specification'
-                mode=None
-        else:
-            print 'Variability mode is missing an enddate'
-            mode = None
-    elif scans.startscan !='':
-        if scans.endscan !='':
-            mode='switch'
-            print 'In switching scan mode'
-        elif scans.nscan !='':
-            mode='switch'
-            print 'In switching mode'
-        else:
-            print 'Switching mode needs an end scan or nscan specification'
-            mode = None
-    else:
-        mode = None
-        print "No scan specification set"
-    
-    #set placeholders for scan and beam list        
-    scan_list = []
-    beam_list = []
-
-
-    if mode == 'switch':
-        if scans.nscan == '':
-            #if nscan isn't set, calculate it
-            nscans = int(scans.endscan) - int(scans.startscan) + 1
-            scans.setnscan(nscans)
-            #find number of bad scans and account for that
-        scan_list = np.empty(int(scans.nscan),dtype=object) #set scanlist to be lenght of nscan
-        beam_list = np.empty(int(scans.nscan),dtype=object) #set beamlist to length of nscan
-        #iterate through each scan and add it to the scan_list
-        #parse obsrecord to find relevant beam aand add beam to beamlist
-        badind = [] #track indices for bad scans
-        for n in xrange(int(scans.nscan)):
-            scannumber = int(scans.startscan)+n #get scan number as an int
-            #check if bad, if yes, mark it:
-            if str(scannumber) in scans.badscans:
-                badind.append(n)
-            scan_list[n] = str(scannumber)  #write everything as strings
-            #find the entry in obsrecord TaskId and parse beam from Data entry
-            ind = np.where(obsrecord['TaskId'] == scannumber)[0]
-            name = str(obsrecord['Data'][ind]) 
-            #have to turn into a string because this is 'MaskedColumn'
-            name_split = name.split('_')
-            #find the last entry for beam number.
-            #There should always be three entries - scan (with column name, annoyingly), source and beam
-            #If there are only two entries, assume beam is 0. 
-            #This might not have been true in past but should be always now.
-            if len(name_split) <3:
-                beam = 0
-            else:
-                beam = int(name_split[-1])
-            beam_list[n] = str(beam)  #write as string
+def get_switching_scan_dict(maxint = 7,nskip = 1, nswitch = 30):
+    #Use atdbquery to find all scans that are part of placing calibrator in (almost)every beam
+    #Can run with no parameters
+    #maxint is maximum integration time in minutes
+    #nksip is the number of scans that can be skipped to still be part of same sequence
+    #nswitch is the minimum number of total scans in a switching sequence
+    allscans = atdbquery('imaging')
+    scanlist=[]
+    namelist=[]
+    switching_scan_dict = {}
+    for scan in allscans:
+        starttime = scan['starttime']
+        endtime = scan['endtime']
+        try:
+            s1 = datetime.strptime(starttime,'%Y-%m-%dT%H:%M:%SZ')
+            s2 = datetime.strptime(endtime,'%Y-%m-%dT%H:%M:%SZ')
+            length = s2-s1
+        except TypeError:
+            continue #restart loop if time is not string
+        #identify short calibrator scans
+        if length.seconds < maxint*60: #maxint in minutes
+            scanlist.append(scan['taskID'])
+            namelist.append(scan['name'])
             
-    if mode == 'variability':
-        #need to implement this but it isn't critical yet.
-        print "Identifying scanlist and beamlist for variability mode isn't implemented yet"
-
-    #delete bad scans from list
-    #not the most elegant way but works for now
-    if len(badind) >0:
-        scans = np.delete(scan_list,badind)
-        beams = np.delete(beam_list,badind)
-    else:
-        scans = scan_list
-        beams = beam_list
-
-    return mode,scans,beams
-
+    #now need to sort lists
+    sorted_scan = sorted(scanlist)
+    sorted_name = [name for _,name in sorted(zip(scanlist,namelist))]
+    
+    #then iterate through lists to parse into subsets of switching scans
+    tmpscanlist=[]
+    tmpnamelist=[]
+    for scan,name in zip(sorted_scan,sorted_name):
+        name_split = name.split('_') #break name down, can check if it has right structure
+        #check if name has right structure, if not, skip (test obs, don't care)
+        #assuming structure is Cal_Beam
+        if len(name_split) == 2:
+            if len(tmpscanlist) > 0: #check if already entries in list
+                if ((np.abs(int(tmpscanlist[-1])-int(scan))) > (nskip+1)) or (name_split[0] != tmpnamelist[-1]):
+                    #check if this scan breaks the sequence, with possiblity of nskip missed scans
+                    #if source name changes, that also breaks seuqence
+                    if len(tmpscanlist) >= nswitch:
+                        #if so, check if long enough to add as dictionary of scans
+                        keyname = tmpscanlist[0] +"_"+ tmpnamelist[0] #scan w/ calibrator
+                        switching_scan_dict[keyname] = tmpscanlist
+                    #and reset lists if sequenc is broken
+                    tmpscanlist = [scan]
+                    tmpnamelist=[name_split[0]]
+                else: #if still in sequence, append
+                    tmpscanlist.append(scan)
+                    tmpnamelist.append(name_split[0])
+            else: #else populate the list
+                tmpscanlist = [scan]
+                tmpnamelist = [name_split[0]]
+            
+  
+    #nicely format dictionary
+    print 'First scan, number in switch'
+    for key in switching_scan_dict:
+        print '{0}  {1}'.format(key,len(switching_scan_dict[key]))
+    
+    return switching_scan_dict
 
 
 def copy_scans(scans,obsrecordfile,basedir,run=False):
