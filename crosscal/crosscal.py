@@ -83,24 +83,24 @@ def get_switching_scan_dict(maxint = 7,nskip = 1, nswitch = 30):
                 tmpnamelist = [name_split[0]]
             
   
-    #nicely format dictionary
+    #nicely format dictionary, print to screen in time order
     print 'First scan, number in switch'
     for key in sorted(switching_scan_dict):
         print '{0}  {1}'.format(key,len(switching_scan_dict[key]))
     
     return switching_scan_dict
 
-
-def copy_switching_scans(scan_dict,basedir,scanset=None,mode='single',run=False):
-    #This will use the output of get_scan_list 
-    #Use scan_dict to find files for copying over
+def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearcal=False):
+    #this is a wrapper function that copies, updates, flags, calibrates data
+    #Use scan_dict (output of get_scan_list) to find files for copying over
     #basedir is base location to copy to
     #optional keywords:
     #scanset = None, automatically use latest scan (mode='single')
     #or all scans (mode='multiple')
     #scanset can also be a string (with mode='single') 
     #or it can be a list of strings (with mode='multiple') to plot just those scans
-    
+    #if run=False, prints data to be copied and quits
+
     
     #check whether or not execute commands
     if run==False:
@@ -148,8 +148,8 @@ def copy_switching_scans(scan_dict,basedir,scanset=None,mode='single',run=False)
             scanset = keylist
     else:
         print "mode must be 'single' or 'multiple'"
-    #print scanset
-    
+        
+    #now go through data and for each scan, take appropriate action
     for scankey in scanset:
         #go through all the scans:
         for obs in scan_dict[scankey]:
@@ -157,78 +157,76 @@ def copy_switching_scans(scan_dict,basedir,scanset=None,mode='single',run=False)
             obs_split = obs.split('_')
             scan = obs_split[0]
             beam = obs_split[1]
-            #first, move into targetdest (create if needed)
-            #need a separate directory for each dataset
-            #bleh
-            #name by scan number (best for when I add other mode)
-            targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
-            if os.path.exists(targetdir):
-                pass
-            else:
-                os.makedirs(targetdir)
-            #then change to working directory to copy data
-            #think this is how the usage of ALTA data module from Vanessa is
-            os.chdir(targetdir)
-            print 'Moved to and copying data to {0}'.format(os.getcwd())
-    
-            #first parse scan as required:
-            scandate = scan[0:6]
-            scannum = scan[6:9]
-            #format string command to match usage:
-            # ALTA data transfer: Uses the iROD client to transfer data from ALTA
-            # Example usage: >> python getdata_alta.py 180316 004-010 00-36
-            # V.A. Moss (vmoss.astro@gmail.com)
-            string_command = "python /home/adams/altadata/getdata_alta.py {0} {1}-{1} {2:0>2}-{2:0>2}".format(scandate,scannum,beam)
-            #Have to specify beam w/ double integers
-            #But maybe I can do with format - yep!
-            #check if data already exists - if it does, don't do anything (set run=False to print to screen)
-            filename = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-            filerun = True
-            if os.path.exists(filename):
-                filerun=False #file exists, so don't need to copy again            
+            print 'Copying data'
+            copy_scan(scan,beam,basedir,run=run)
             if run==False:
-                print string_command
-            if filerun == False:
-                print 'File already exists'
-                #reset filerun
-                filerun=True
-            elif run==True:
-                #and run the command:
-                os.system(string_command)
-                print 'Running '+string_command
+                print 'In verification mode, no data copied, will skip remaining steps'
+            else:
+                print 'Fixing source names'
+                fix_source_name(scan,beam,basedir)
+                print 'Flagging data'
+                flag_scan(scan,beam,basedir)
+                print 'Calibrating data'
+                calibrate_scan(scan,beam,basedir)
+                
+            
+    
+
+def copy_scan(scan,beam,basedir,run=False):
+    #Copy a scan/beam combination over
+   
+    #move into targetdir
+    #name by scan number (best for when I add other mode)
+    targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
+    if os.path.exists(targetdir):
+        pass
+    else:
+        os.makedirs(targetdir)
+    #then change to working directory to copy data
+    #think this is how the usage of ALTA data module from Vanessa is
+    os.chdir(targetdir)
+    print 'Moved to and copying data to {0}'.format(os.getcwd())
+    
+    #first parse scan as required:
+    scandate = scan[0:6]
+    scannum = scan[6:9]
+    #format string command to match usage:
+        # ALTA data transfer: Uses the iROD client to transfer data from ALTA
+        # Example usage: >> python getdata_alta.py 180316 004-010 00-36
+        # V.A. Moss (vmoss.astro@gmail.com)
+    string_command = "python /home/adams/altadata/getdata_alta.py {0} {1}-{1} {2:0>2}-{2:0>2}".format(scandate,scannum,beam)
+    filename = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    filerun = True
+    if os.path.exists(filename):
+        filerun=False #file exists, so don't need to copy again            
+    if run==False:
+        print string_command
+    if filerun == False:
+        print 'File already exists'
+        #reset filerun
+        filerun=True
+    elif run==True:
+        #and run the command:
+        os.system(string_command)
+        print 'Running '+string_command
 
                 
-def fix_source_name(scans,obsrecordfile,basedir,flip=False,unflip=False):
+def fix_source_name(scan,beam,basedir):
     #Source names have beam in them (critical for get_scans!)
     #But that will cause calibration to crash
     #CASA isn't very smart
     #So I'll have to be smart instead and update everything
-    #I'll also give option here of flipping coordinates
-    #Since I'm already messing w/ MS, this seems appropriate place to do so.
-    #and will also include unflip flag, in case I mess things up
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    for scan,beam in zip(scan_list,beam_list):
-        targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
-        msfile = "{0}/WSRTA{1}_B{2:0>3}.MS".format(targetdir,scan,beam)
-        t_field = pt.table(msfile+"::FIELD", readonly=False)
-        name = t_field[0]['NAME']
-        name_split = name.split('_') #split by underscore - works also if no underscore
-        t_field.putcell("NAME", 0, name_split[0])  #update source name to anything before first underscore (or original name if no underscore)
-        t_field.flush()
-        if (flip == True) and (unflip == True):
-            print "Both flipping and unflipping. No net change"
-        if flip == True:
-            aputil.flip_ra(msfile)
-        if unflip == True:
-            aputil.unflip_ra(msfile)
+    targetdir = '{0}/{1}/00/raw'.format(basedir,scan)
+    msfile = "{0}/WSRTA{1}_B{2:0>3}.MS".format(targetdir,scan,beam)
+    t_field = pt.table(msfile+"::FIELD", readonly=False)
+    name = t_field[0]['NAME']
+    name_split = name.split('_') #split by underscore - works also if no underscore
+    t_field.putcell("NAME", 0, name_split[0])  #update source name to anything before first underscore (or original name if no underscore)
+    t_field.flush()
     
     
-def flag_scans(scans,obsrecordfile,basedir,cfgfile,edges=True,ghosts=True):
-    #This will use output of get_scan_list
-    #plus apercal.preflag() to flag the data
-    #basedir should be in cfg file but specify manually to make sure things match
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    preflag = apercal.preflag(cfgfile)
+def flag_scan(scan,beam,basedir,edges=True,ghosts=True):
+    preflag = apercal.preflag()
     preflag.preflag_edges = edges #option to turn on/off
     preflag.preflag_ghosts = ghosts #option to turn on/off
     #set source and pol cal to False - will iterate through updating fluxcal and running preflag one at a time
@@ -238,48 +236,25 @@ def flag_scans(scans,obsrecordfile,basedir,cfgfile,edges=True,ghosts=True):
     preflag.preflag_aoflagger_target = False
     #should only find central beam, but specify anyway
     preflag.preflag_aoflagger_targetbeams = '00' 
-    #now iterate through all my scans/beams:
-    for scan,beam in zip(scan_list,beam_list):
-        preflag.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-        preflag.basedir = "{0}/{1}/".format(basedir,scan) #basedir for Apercal is different than my basedir, needs trailing slash
-        print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-        #treat everything as fluxcal - this is for purpose of iterating and flagging
-        #may have to be more careful when deriving solutions - will care about flux vs. pol eventually then
-        #and run preflag
-        print "Flagging data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,preflag.basedir)
-        preflag.go()
-
+    preflag.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    preflag.basedir = "{0}/{1}/".format(basedir,scan) #basedir for Apercal is different than my basedir, needs trailing slash
+    print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    #and run preflag
+    print "Flagging data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,preflag.basedir)
+    preflag.go()
 
     
-       
-def calibrate_scans(scans,obsrecordfile,basedir,cfgfile):
-    #This will use scan_list,beam_list from get_scan_list
-    #plus apercal.ccal to calibrate the data
-    #HAVE TO CHANGE SOURCE NAME! - this is done in fix_source_name
-    print "Warning! Have you run fix_source_name?"
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    
+def calibrate_scan(scan,beam,basedir):
     #load ccal module
-    ccal = apercal.ccal(cfgfile)
+    ccal = apercal.ccal()
     ccal.crosscal_transfer_to_target = False #there is no target
-    for scan,beam in zip(scan_list,beam_list):
-        ccal.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-        ccal.basedir = "{0}/{1}/".format(basedir,scan) #basedir for Apercal is different than my basedir, plus trailing slash
-        print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-        print "Calibrating data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,ccal.basedir)
-        ccal.go()
+    ccal.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    ccal.basedir = "{0}/{1}/".format(basedir,scan) #basedir for Apercal is different than my basedir, plus trailing slash
+    print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    print "Calibrating data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,ccal.basedir)
+    ccal.go()
 
-def clear_calibration_scans(scans,obsrecordfile,basedir,cfgfile):  
-    #this will clear calibration solution
-    #that way can rerun w/out having to redo everything
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
-    
-    #load ccal module
-    ccal = apercal.ccal(cfgfile)
-    for scan,beam in zip(scan_list,beam_list):
-        ccal.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-        ccal.basedir = "{0}/{1}/".format(basedir,scan)
-        ccal.clear()
+
 
 """Bandpass solutions"""    
     
