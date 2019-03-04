@@ -150,6 +150,10 @@ def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearca
         print "mode must be 'single' or 'multiple'"
         
     #now go through data and for each scan, take appropriate action
+    #record scans and beams - useful for later 
+    #although I really need to change what I'm doing fundamentally here
+    scanlist = []
+    beamlist = []
     for scankey in scanset:
         #go through all the scans:
         for obs in scan_dict[scankey]:
@@ -159,6 +163,8 @@ def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearca
             beam = obs_split[1]
             print 'Copying data'
             copy_scan(scan,beam,basedir,run=run)
+            scanlist.append(scan)
+            beamlist.append(beam)
             if run==False:
                 print 'In verification mode, no data copied, will skip remaining steps'
             else:
@@ -168,6 +174,8 @@ def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearca
                 flag_scan(scan,beam,basedir)
                 print 'Calibrating data'
                 calibrate_scan(scan,beam,basedir)
+                
+    return scanlist,beamlist
                 
             
     
@@ -256,6 +264,119 @@ def calibrate_scan(scan,beam,basedir):
 
 
 
+"""Object specification"""    
+"""
+Define object classes for holding data related to scans
+"""
+
+class ScanData(object):
+    #Initilailze with source name, scalist and beamlist
+    #and place holders for phase and amplitude
+    def __init__(self,source,basedir,scanlist,beamlist):
+        self.source = source
+        self.scanlist = scanlist
+        self.beamlist = beamlist
+        self.basedir=basedir
+        self.phase = np.empty(len(scanlist))
+        self.amp = np.empty(len(scanlist))
+        
+class BPSols(ScanData):
+    def __init__(self,source,basedir,scanlist,beamlist):
+        ScanData.__init__(self,source,scanlist,beamlist)
+        self.ants = np.empty(len(scanlist))
+        self.time = np.empty(len(scanlist))
+        self.freq = np.empty(len(scanlist))
+        self.flags = np.empty(len(scanlist))
+        self.amps_norm = np.empty(len(scanlist))
+        self.phases_norm = np.empty(len(scanlist))
+    
+    def get_data(self):
+        #get the data
+        for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+            bptable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
+            taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase, "
+                            "FLAG FROM {0}").format(bptable)
+            t=pt.taql(taql_command)
+            times = t.getcol('TIME')
+            amp_sols=t.getcol('amp')
+            phase_sols = t.getcol('phase')
+            flags = t.getcol('FLAG')
+            taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(bptable)
+            t= pt.taql(taql_antnames)
+            ant_names=t.getcol("NAME")    
+            taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(bptable)
+            t = pt.taql(taql_freq)
+            freqs = t.getcol('CHAN_FREQ')
+            
+            self.ants[i] = ant_names
+            self.time[i] = times
+            self.phase[i] = phase_sols
+            self.amp[i] = amp_sols
+            self.flags[i] = flags
+            self.freq[i] = freqs
+        
+class GainSols(ScanData):
+    def __init__(self,source,basedir,scanlist,beamlist):
+        ScanData.__init__(self,source,scanlist,beamlist)
+        self.ants = np.empty(len(scanlist))
+        self.time = np.empty(len(scanlist))
+        self.flags = np.empty(len(scanlist))
+        self.amps_norm = np.empty(len(scanlist))
+        self.phases_norm = np.empty(len(scanlist))
+        
+    def get_data(self):
+        for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+            gaintable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(basedir,scan,beam)
+            taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(gaintable)
+            t= pt.taql(taql_antnames)
+            ant_names=t.getcol("NAME")
+    
+            #then get number of times
+            #need this for setting shape
+            taql_time =  "select TIME from {0} orderby unique TIME".format(gaintable)
+            t= pt.taql(taql_time)
+            times = t.getcol('TIME') 
+    
+            #then iterate over antenna
+            #set array sahpe to be [n_ant,n_time,n_stokes]
+            #how can I get n_stokes? Could be 2 or 4, want to find from data
+            #get 1 data entry
+            taql_stokes = "SELECT abs(CPARAM) AS amp from {0} limit 1" .format(gaintable)
+            t_pol = pt.taql(taql_stokes)
+            pol_array = t_pol.getcol('amp')
+            n_stokes = pol_array.shape[2] #shape is time, one, nstokes
+    
+            amp_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+            phase_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=object)
+            flags_ant_array = np.empty((len(ant_names),len(times),n_stokes),dtype=bool)
+        
+            for ant in xrange(len(ant_names)):
+                taql_command = ("SELECT abs(CPARAM) AS amp, arg(CPARAM) AS phase, FLAG FROM {0} " 
+                                "WHERE ANTENNA1={1}").format(gaintable,ant)
+                t = pt.taql(taql_command)
+                amp_ant_array[ant,:,:] = t.getcol('amp')[:,0,:]
+                phase_ant_array[ant,:,:] = t.getcol('phase')[:,0,:]
+                flags_ant_array[ant,:,:] = t.getcol('FLAG')[:,0,:]
+                
+            self.amp[i] = amp_ant_array
+            self.phase[i] = phase_ant_array
+            self.ants[i] = ant_names
+            self.time[i] = times
+            self.flags[i] = flags_ant_array
+
+        
+class ModelData(ScanData):
+    def __init__(self,source,basedir,scanlist,beamlist):
+        ScanData.__init__(self,source,scanlist,beamlist)
+        self.freq = np.empty(len(scanlist))
+        
+class CorrectedData(ScanData):
+    def __init__(self,source,basedir,scanlist,beamlist):
+        ScanData.__init__(self,source,scanlist,beamlist)
+        self.ants = np.empty(len(scanlist))
+        self.freq = np.empty(len(scanlist))
+
+    
 """Bandpass solutions"""    
     
 def get_bp_sols(bptable):
@@ -281,15 +402,13 @@ def get_bp_sols(bptable):
 
     return ant_names,times,freqs,amp_sols,phase_sols,flags
 
-def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
+def compare_scan_solution_bp(scan_list,beam_list,basedir,norm=True,refscan=''):
     #This will compare scan BP solutions to reference (given) for amp & phase 
     #(easiest to do together at once)
     #will return a multi-d array (ant, freq, pol, scan)
     #If norm=True, amp solution is divided by reference and phase ref is subtracted from sol
     #otherwise it returns all the solutions into array
     
-    #first, get scan and beam list:
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     
     #check if want normalized solutions
     #if so, get reference values
@@ -339,14 +458,14 @@ def compare_scan_solution_bp(scans,obsrecordfile,basedir,norm=True,refscan=''):
     return ant_names,times,freqs,bp_amp_vals,bp_phase_vals
 
 
-def plot_compare_bp_beam(scans,obsrecordfile,basedir,norm=True,
+def plot_compare_bp_beam(scan_list,beam_list,basedir,norm=True,
                          refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
                         figname=''):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
     
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+   
     (ant_names,times,freqs,
      bp_amp_vals,bp_phase_vals) = compare_scan_solution_bp(scans,obsrecordfile,basedir,
                                                            norm=norm,refscan=refscan)        
@@ -448,7 +567,7 @@ def get_gain_sols(gaintable):
     return ant_names,times,amp_ant_array,phase_ant_array,flags_ant_array
 
 
-def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan=''):
+def compare_scan_solution_gain(scan_list,beam_list,basedir,norm=True,refscan=''):
     #This will collect all gain solutions for a scan of beams
     #If set, will nromalize to a reference.
     #Note that each scan will have different times, 
@@ -456,8 +575,6 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
     #and use that for comparison
     #for now, assume separated by beam but by time should also work
     
-    #first, get scan and beam list:
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     
     #check if want normalized solutions
     #if so, get reference values
@@ -579,15 +696,14 @@ def compare_scan_solution_gain(scans,obsrecordfile,basedir,norm=True,refscan='')
     return ant_names,time_vals,gain_amp_vals,gain_phase_vals
 
 
-def plot_compare_gain_beam(scans,obsrecordfile,basedir,
+def plot_compare_gain_beam(scan_list,beam_list,basedir,
                            norm=True,refscan='',plotmode='amp',
-                           pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
+                           pol=0,nx=8,ymin=0,ymax=0,plotsize=4,
                           figname=''):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
     
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     (ant_names,time_vals,gain_amp_vals,
      gain_phase_vals) = compare_scan_solution_gain(scans,
                                                    obsrecordfile,
@@ -659,12 +775,9 @@ def get_model(msfile):
     
     return freqs,amp,phase
 
-def compare_scan_model(scans,obsrecordfile,basedir):
+def compare_scan_model(scan_list,beam_list,basedir):
     #take a scan object and get the model for each observation
     #this will confirm that sources are properly named
-    
-    #first, get scan and beam list:
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     
     #now iterate through each beam
     #start with a test to get dimensions
@@ -685,11 +798,10 @@ def compare_scan_model(scans,obsrecordfile,basedir):
         
     return freqs,model_amp_array,model_phase_array
 
-def plot_compare_scan_model(scans,obsrecordfile,basedir,plotmode='amp',
-                            pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
+def plot_compare_scan_model(scan_list,beam_list,basedir,plotmode='amp',
+                            pol=0,nx=8,ymin=0,ymax=0,plotsize=4,
                            figname=''):
-    #plot model for each scan
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+   
     (freqs,model_amp_array,
      model_phase_array) = compare_scan_model(scans,obsrecordfile,
                                              basedir)
@@ -775,12 +887,9 @@ def get_calibrated_data(msfile):
     return ant_names,freqs,amp_ant_array,phase_ant_array
 
 
-def compare_scan_calibrated_data(scans,obsrecordfile,basedir,norm=True,refscan=''):
+def compare_scan_calibrated_data(scan_list,beam_list,basedir,norm=True,refscan=''):
     #can normalize to reference
     #useful to see if there are systematic issues, but wouldn't expect taht
-    
-    #first, get scan and beam list:
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
     
     #check if want normalized solutions
     #if so, get reference values
@@ -823,14 +932,13 @@ def compare_scan_calibrated_data(scans,obsrecordfile,basedir,norm=True,refscan='
     return ant_names,freqs,amp_vals,phase_vals        
             
 
-def plot_compare_calibrated_data_beam(scans,obsrecordfile,basedir,norm=True,
+def plot_compare_calibrated_data_beam(scan_list,beam_list,basedir,norm=True,
                                       refscan='',plotmode='amp',pol=0,nx=3,ymin=0,ymax=0,plotsize=4,
                                      figname=''):
     #this will generate plots that compare BP solutions between beams
     #It can run with option amplitude or phase, default amp
     #Defaults to showing pol 0, can also change
-    
-    mode,scan_list,beam_list = get_scan_list(scans,obsrecordfile)
+
     ant_names,freqs,amp_vals,phase_vals = compare_scan_calibrated_data(scans,obsrecordfile,basedir,
                                                                        norm=norm,refscan=refscan)        
     print np.min(amp_vals),np.max(amp_vals)
