@@ -308,9 +308,13 @@ class BPSols(ScanData):
             t = pt.taql(taql_freq)
             freqs = t.getcol('CHAN_FREQ')
             
+            #check for flags and mask
+            amp_sols[flags] = np.nan
+            phase_sols[flags] = np.nan
+            
             self.ants[i] = ant_names
             self.time[i] = times
-            self.phase[i] = phase_sols
+            self.phase[i] = phase_sols *180./np.pi #put into degrees
             self.amp[i] = amp_sols
             self.flags[i] = flags
             self.freq[i] = freqs
@@ -333,23 +337,55 @@ class BPSols(ScanData):
             for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
                 beamnum = int(beam)
                 plt.subplot(ny, nx, beamnum+1)
-                plt.scatter(self.freq[n][0,:],self.amp[n][a,:,0],label='XX',
+                plt.scatter(self.freq[n][0,:],self.amp[n][a,:,0],
+                            label='XX, {0}'.format(self.time[n][a]),
                             marker=',',s=1)
-                plt.scatter(self.freq[n][0,:],self.amp[n][a,:,1],label='YY',
+                plt.scatter(self.freq[n][0,:],self.amp[n][a,:,1],
+                            label='YY, {0}'.format(self.time[n][a]),
                             marker=',',s=1)
                 plt.title('Beam {0}'.format(beam))
+                plt.ylim(0,1.8)
             plt.legend()
-            plt.savefig('/home/adams/commissioning/crosscal/img/BP_amp_{0}.png'.format(ant))
+            plt.savefig('/home/adams/commissioning/crosscal/img/BP_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
+            
+    def plot_phase(self):
+        #plot phase, one plot per antenna
+        ant_names = self.ants[0]
+        #figlist = ['fig_'+str(i) for i in range(len(ant_names))]
+        for a,ant in enumerate(ant_names):
+            #iterate through antennas
+            #set up for 8x5 plots (40 beams)
+            nx = 8
+            ny = 5
+            xsize = nx*4
+            ysize = ny*4
+            plt.figure(figsize=(xsize,ysize))
+            plt.suptitle('Bandpass phases for Antenna {0}'.format(ant))
+            
+            for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+                beamnum = int(beam)
+                plt.subplot(ny, nx, beamnum+1)
+                plt.scatter(self.freq[n][0,:],self.phase[n][a,:,0],
+                            label='XX, {0}'.format(self.time[n][a]),
+                            marker=',',s=1)
+                plt.scatter(self.freq[n][0,:],self.phase[n][a,:,1],
+                            label='YY, {0}'.format(self.time[n][a]),
+                            marker=',',s=1)
+                plt.title('Beam {0}'.format(beam))
+                plt.ylim(-180,180)
+            plt.legend()
+            plt.savefig('/home/adams/commissioning/crosscal/img/BP_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
+            
             
         
 class GainSols(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
         ScanData.__init__(self,source,basedir,scanlist,beamlist)
-        self.ants = np.empty(len(scanlist))
-        self.time = np.empty(len(scanlist))
-        self.flags = np.empty(len(scanlist))
-        self.amps_norm = np.empty(len(scanlist))
-        self.phases_norm = np.empty(len(scanlist))
+        self.ants = np.empty(len(scanlist),dtype=np.object)
+        self.time = np.empty(len(scanlist),dtype=np.ndarray)
+        self.flags = np.empty(len(scanlist),dtype=np.ndarray)
+        self.amps_norm = np.empty(len(scanlist),dtype=np.ndarray)
+        self.phases_norm = np.empty(len(scanlist),dtype=np.ndarray)
         
     def get_data(self):
         for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
@@ -385,11 +421,42 @@ class GainSols(ScanData):
                 phase_ant_array[ant,:,:] = t.getcol('phase')[:,0,:]
                 flags_ant_array[ant,:,:] = t.getcol('FLAG')[:,0,:]
                 
+            #check for flags and mask
+            amp_ant_array[flags_ant_array] = np.nan
+            phase_ant_array[flags_ant_array] = np.nan
+            
             self.amp[i] = amp_ant_array
-            self.phase[i] = phase_ant_array
+            self.phase[i] = phase_ant_array * 180./np.pi #put into degrees
             self.ants[i] = ant_names
             self.time[i] = times
             self.flags[i] = flags_ant_array
+            
+    def plot_amp(self):
+        #plot amplitude, one plot per antenna
+        #put plots in default place w/ default name
+        ant_names = self.ants[0]
+        #figlist = ['fig_'+str(i) for i in range(len(ant_names))]
+        for a,ant in enumerate(ant_names):
+            #iterate through antennas
+            #set up for 8x5 plots (40 beams)
+            nx = 8
+            ny = 5
+            xsize = nx*4
+            ysize = ny*4
+            plt.figure(figsize=(xsize,ysize))
+            plt.suptitle('Gain amplitude for Antenna {0}'.format(ant))
+            
+            for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+                beamnum = int(beam)
+                plt.subplot(ny, nx, beamnum+1)
+                plt.plot(self.time[n],self.amp[n][a,:,0],
+                         label='XX, {0}'.format(self.time[n][0]))
+                plt.plot(self.time[n],self.amp[n][a,:,1],
+                         label='YY, {0}'.format(self.time[n][0]))
+                plt.title('Beam {0}'.format(beam))
+                plt.ylim(10,30)
+            plt.legend()
+            plt.savefig('/home/adams/commissioning/crosscal/img/Gain_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
 
         
 class ModelData(ScanData):
