@@ -277,23 +277,23 @@ class ScanData(object):
         self.scanlist = scanlist
         self.beamlist = beamlist
         self.basedir=basedir
-        self.phase = np.empty(len(scanlist))
-        self.amp = np.empty(len(scanlist))
+        self.phase = np.empty(len(scanlist),dtype=np.ndarray)
+        self.amp = np.empty(len(scanlist),dtype=np.ndarray)
         
 class BPSols(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
-        ScanData.__init__(self,source,scanlist,beamlist)
-        self.ants = np.empty(len(scanlist))
-        self.time = np.empty(len(scanlist))
-        self.freq = np.empty(len(scanlist))
-        self.flags = np.empty(len(scanlist))
+        ScanData.__init__(self,source,basedir,scanlist,beamlist)
+        self.ants = np.empty(len(scanlist),dtype=np.object)
+        self.time = np.empty(len(scanlist),dtype=np.ndarray)
+        self.freq = np.empty(len(scanlist),dtype=np.ndarray)
+        self.flags = np.empty(len(scanlist),dtype=np.ndarray)
         self.amps_norm = np.empty(len(scanlist))
         self.phases_norm = np.empty(len(scanlist))
     
     def get_data(self):
         #get the data
         for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
-            bptable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(basedir,scan,beam)
+            bptable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(self.basedir,scan,beam)
             taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase, "
                             "FLAG FROM {0}").format(bptable)
             t=pt.taql(taql_command)
@@ -303,7 +303,7 @@ class BPSols(ScanData):
             flags = t.getcol('FLAG')
             taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(bptable)
             t= pt.taql(taql_antnames)
-            ant_names=t.getcol("NAME")    
+            ant_names=t.getcol("NAME") 
             taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(bptable)
             t = pt.taql(taql_freq)
             freqs = t.getcol('CHAN_FREQ')
@@ -314,10 +314,37 @@ class BPSols(ScanData):
             self.amp[i] = amp_sols
             self.flags[i] = flags
             self.freq[i] = freqs
+            
+    def plot_amp(self):
+        #plot amplitude, one plot per antenna
+        #put plots in default place w/ default name
+        ant_names = self.ants[0]
+        #figlist = ['fig_'+str(i) for i in range(len(ant_names))]
+        for a,ant in enumerate(ant_names):
+            #iterate through antennas
+            #set up for 8x5 plots (40 beams)
+            nx = 8
+            ny = 5
+            xsize = nx*4
+            ysize = ny*4
+            plt.figure(figsize=(xsize,ysize))
+            plt.suptitle('Bandpass amplitude for Antenna {0}'.format(ant))
+            
+            for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+                beamnum = int(beam)
+                plt.subplot(ny, nx, beamnum+1)
+                plt.scatter(self.freq[n][0,:],self.amp[n][a,:,0],label='XX',
+                            marker=',',s=1)
+                plt.scatter(self.freq[n][0,:],self.amp[n][a,:,1],label='YY',
+                            marker=',',s=1)
+                plt.title('Beam {0}'.format(beam))
+            plt.legend()
+            plt.savefig('/home/adams/commissioning/crosscal/img/BP_amp_{0}.png'.format(ant))
+            
         
 class GainSols(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
-        ScanData.__init__(self,source,scanlist,beamlist)
+        ScanData.__init__(self,source,basedir,scanlist,beamlist)
         self.ants = np.empty(len(scanlist))
         self.time = np.empty(len(scanlist))
         self.flags = np.empty(len(scanlist))
@@ -326,7 +353,7 @@ class GainSols(ScanData):
         
     def get_data(self):
         for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
-            gaintable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(basedir,scan,beam)
+            gaintable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.G1ap".format(self.basedir,scan,beam)
             taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(gaintable)
             t= pt.taql(taql_antnames)
             ant_names=t.getcol("NAME")
@@ -367,12 +394,12 @@ class GainSols(ScanData):
         
 class ModelData(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
-        ScanData.__init__(self,source,scanlist,beamlist)
+        ScanData.__init__(self,source,basedir,scanlist,beamlist)
         self.freq = np.empty(len(scanlist))
         
 class CorrectedData(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
-        ScanData.__init__(self,source,scanlist,beamlist)
+        ScanData.__init__(self,source,basedir,scanlist,beamlist)
         self.ants = np.empty(len(scanlist))
         self.freq = np.empty(len(scanlist))
 
