@@ -481,7 +481,7 @@ class GainSols(ScanData):
                 plt.plot(self.time[n],self.phase[n][a,:,1],
                          label='YY, {0}'.format(self.time[n][0]))
                 plt.title('Beam {0}'.format(beam))
-                plt.ylim(10,30)
+                plt.ylim(-180,180)
             plt.legend()
             plt.savefig('/home/adams/commissioning/crosscal/img/Gain_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
 
@@ -489,7 +489,7 @@ class GainSols(ScanData):
 class ModelData(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
         ScanData.__init__(self,source,basedir,scanlist,beamlist)
-        self.freq = np.empty(len(scanlist),dytpe=np.ndarray)
+        self.freq = np.empty(len(scanlist),dtype=np.ndarray)
         
     def get_data(self):
         for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
@@ -521,7 +521,7 @@ class ModelData(ScanData):
             plt.subplot(ny, nx, beamnum+1)
             plt.plot(self.freq[n],self.amp[n][:,0],
                      label='XX')
-            plt.plot(self.freq[n],self.amp[n][:,1],
+            plt.plot(self.freq[n],self.amp[n][:,3],
                      label='YY')
             plt.title('Beam {0}'.format(beam))
             #plt.ylim(10,30)
@@ -543,7 +543,7 @@ class ModelData(ScanData):
             plt.subplot(ny, nx, beamnum+1)
             plt.plot(self.freq[n],self.phase[n][:,0],
                      label='XX')
-            plt.plot(self.freq[n],self.phase[n][:,1],
+            plt.plot(self.freq[n],self.phase[n][:,3],
                      label='YY')
             plt.title('Beam {0}'.format(beam))
             #plt.ylim(10,30)
@@ -554,8 +554,8 @@ class ModelData(ScanData):
 class CorrectedData(ScanData):
     def __init__(self,source,basedir,scanlist,beamlist):
         ScanData.__init__(self,source,basedir,scanlist,beamlist)
-        self.ants = np.empty(len(scanlist),dytpe=np.object)
-        self.freq = np.empty(len(scanlist),dtype=np.array)
+        self.freq = np.empty(len(scanlist),dtype=np.ndarray)
+        self.ants = np.empty(len(scanlist),dtype=np.object)
         
     def get_data(self):
         for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
@@ -612,10 +612,12 @@ class CorrectedData(ScanData):
             for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
                 beamnum = int(beam)
                 plt.subplot(ny, nx, beamnum+1)
-                plt.plot(self.freq[n],self.amp[n][a,:,0],
-                         label='XX, {0}'.format(scan))
-                plt.plot(self.freq[n],self.amp[n][a,:,3],
-                         label='YY, {0}'.format(scan))
+                plt.scatter(self.freq[n],self.amp[n][a,:,0],
+                           label='XX, {0}'.format(scan),
+                           marker=',',s=1)
+                plt.scatter(self.freq[n],self.amp[n][a,:,3],
+                           label='YY, {0}'.format(scan),
+                           marker=',',s=1)
                 plt.title('Beam {0}'.format(beam))
                 plt.ylim(10,30)
             plt.legend()
@@ -639,12 +641,14 @@ class CorrectedData(ScanData):
             for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
                 beamnum = int(beam)
                 plt.subplot(ny, nx, beamnum+1)
-                plt.plot(self.freq[n],self.phase[n][a,:,0],
-                         label='XX, {0}'.format(scan))
-                plt.plot(self.freq[n],self.phase[n][a,:,3],
-                         label='YY, {0}'.format(scan))
+                plt.scatter(self.freq[n],self.phase[n][a,:,0],
+                           label='XX, {0}'.format(scan),
+                           marker=',',s=1)
+                plt.scatter(self.freq[n],self.phase[n][a,:,3],
+                           label='YY, {0}'.format(scan),
+                           marker=',',s=1)
                 plt.title('Beam {0}'.format(beam))
-                plt.ylim(10,30)
+                plt.ylim(-3,3)
             plt.legend()
             plt.savefig('/home/adams/commissioning/crosscal/img/Corrected_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
                          
