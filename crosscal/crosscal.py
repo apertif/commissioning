@@ -193,7 +193,7 @@ def copy_scan(scan,beam,basedir,run=False):
     #then change to working directory to copy data
     #think this is how the usage of ALTA data module from Vanessa is
     os.chdir(targetdir)
-    print 'Moved to and copying data to {0}'.format(os.getcwd())
+    #print 'Moved to and copying data to {0}'.format(os.getcwd())
     
     #first parse scan as required:
     scandate = scan[0:6]
@@ -208,15 +208,16 @@ def copy_scan(scan,beam,basedir,run=False):
     if os.path.exists(filename):
         filerun=False #file exists, so don't need to copy again            
     if run==False:
-        print string_command
+        #print string_command
+        pass
     if filerun == False:
-        print 'File already exists'
+        #print 'File already exists'
         #reset filerun
         filerun=True
     elif run==True:
         #and run the command:
         os.system(string_command)
-        print 'Running '+string_command
+        #print 'Running '+string_command
 
                 
 def fix_source_name(scan,beam,basedir):
@@ -246,9 +247,9 @@ def flag_scan(scan,beam,basedir,edges=True,ghosts=True):
     preflag.preflag_aoflagger_targetbeams = '00' 
     preflag.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
     preflag.basedir = "{0}/{1}/".format(basedir,scan) #basedir for Apercal is different than my basedir, needs trailing slash
-    print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    #print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
     #and run preflag
-    print "Flagging data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,preflag.basedir)
+    #print "Flagging data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,preflag.basedir)
     preflag.go()
 
     
@@ -258,8 +259,8 @@ def calibrate_scan(scan,beam,basedir):
     ccal.crosscal_transfer_to_target = False #there is no target
     ccal.fluxcal = "WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
     ccal.basedir = "{0}/{1}/".format(basedir,scan) #basedir for Apercal is different than my basedir, plus trailing slash
-    print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
-    print "Calibrating data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,ccal.basedir)
+    #print "Setting fluxcal to WSRTA{0}_B{1:0>3}.MS".format(scan,beam)
+    #print "Calibrating data set {2}00/raw/WSRTA{0}_B{1:0>3}.MS".format(scan,beam,ccal.basedir)
     ccal.go()
 
 
@@ -294,32 +295,48 @@ class BPSols(ScanData):
         #get the data
         for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
             bptable = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.Bscan".format(self.basedir,scan,beam)
-            taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase, "
-                            "FLAG FROM {0}").format(bptable)
-            t=pt.taql(taql_command)
-            times = t.getcol('TIME')
-            amp_sols=t.getcol('amp')
-            phase_sols = t.getcol('phase')
-            flags = t.getcol('FLAG')
-            taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(bptable)
-            t= pt.taql(taql_antnames)
-            ant_names=t.getcol("NAME") 
-            taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(bptable)
-            t = pt.taql(taql_freq)
-            freqs = t.getcol('CHAN_FREQ')
+            if os.path.isdir(bptable):
+                taql_command = ("SELECT TIME,abs(CPARAM) AS amp, arg(CPARAM) AS phase, "
+                                "FLAG FROM {0}").format(bptable)
+                t=pt.taql(taql_command)
+                times = t.getcol('TIME')
+                amp_sols=t.getcol('amp')
+                phase_sols = t.getcol('phase')
+                flags = t.getcol('FLAG')
+                taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(bptable)
+                t= pt.taql(taql_antnames)
+                ant_names=t.getcol("NAME") 
+                taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(bptable)
+                t = pt.taql(taql_freq)
+                freqs = t.getcol('CHAN_FREQ')
             
-            #check for flags and mask
-            amp_sols[flags] = np.nan
-            phase_sols[flags] = np.nan
+                #check for flags and mask
+                amp_sols[flags] = np.nan
+                phase_sols[flags] = np.nan
             
-            self.ants[i] = ant_names
-            self.time[i] = times
-            self.phase[i] = phase_sols *180./np.pi #put into degrees
-            self.amp[i] = amp_sols
-            self.flags[i] = flags
-            self.freq[i] = freqs
+                self.ants[i] = ant_names
+                self.time[i] = times
+                self.phase[i] = phase_sols *180./np.pi #put into degrees
+                self.amp[i] = amp_sols
+                self.flags[i] = flags
+                self.freq[i] = freqs
+            else:
+                print 'Filling with NaNs. BP table not present for B{}'.format(beam)
+                self.ants[i] = ['RT2','RT3','RT4','RT5','RT6','RT7','RT8','RT9','RTA','RTB','RTC','RTD']
+                self.time[i] = np.array(np.nan)
+                self.phase[i] = np.full((12,2,2),np.nan)
+                self.amp[i] = np.full((12,2,2),np.nan)
+                self.freq[i] = np.full((2,2),np.nan)
             
-    def plot_amp(self):
+    def plot_amp(self,imagepath=None):
+        if imagepath == None:
+            #write in user's home directory (know that have write access there)
+            myusername = os.environ['USER']
+            imagepath = '/home/{}/plots'.format(myusername)
+        #check if imagepath exists, create if necessary
+        if not os.path.exists(imagepath):
+            print "{} doesn't exist, creating".format(imagepath)
+            os.makedirs(imagepath)
         #plot amplitude, one plot per antenna
         #put plots in default place w/ default name
         ant_names = self.ants[0]
@@ -332,7 +349,7 @@ class BPSols(ScanData):
             xsize = nx*4
             ysize = ny*4
             plt.figure(figsize=(xsize,ysize))
-            plt.suptitle('Bandpass amplitude for Antenna {0}'.format(ant))
+            plt.suptitle('Bandpass amplitude for Antenna {0}'.format(ant),size=30)
             
             for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
                 beamnum = int(beam)
@@ -346,7 +363,8 @@ class BPSols(ScanData):
                 plt.title('Beam {0}'.format(beam))
                 plt.ylim(0,1.8)
             plt.legend()
-            plt.savefig('/home/adams/commissioning/crosscal/img/BP_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
+            plt.savefig('{2}/BP_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath))
+
             
     def plot_phase(self):
         #plot phase, one plot per antenna
@@ -360,7 +378,7 @@ class BPSols(ScanData):
             xsize = nx*4
             ysize = ny*4
             plt.figure(figsize=(xsize,ysize))
-            plt.suptitle('Bandpass phases for Antenna {0}'.format(ant))
+            plt.suptitle('Bandpass phases for Antenna {0}'.format(ant),size=30)
             
             for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
                 beamnum = int(beam)
@@ -374,7 +392,8 @@ class BPSols(ScanData):
                 plt.title('Beam {0}'.format(beam))
                 plt.ylim(-180,180)
             plt.legend()
-            plt.savefig('/home/adams/commissioning/crosscal/img/BP_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
+            plt.savefig('{2}/BP_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath))
+
             
             
         
@@ -653,7 +672,131 @@ class CorrectedData(ScanData):
             plt.savefig('/home/adams/commissioning/crosscal/img/Corrected_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6]))
                          
 
+class RawData(ScanData):
+    def __init__(self,source,basedir,scanlist,beamlist):
+        ScanData.__init__(self,source,basedir,scanlist,beamlist)
+        self.freq = np.empty(len(scanlist),dtype=np.ndarray)
+        self.ants = np.empty(len(scanlist),dtype=np.object)
+        
+    def get_data(self):
+        for i, (scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+            msfile = "{0}/{1}/00/raw/WSRTA{1}_B{2:0>3}.MS".format(self.basedir,scan,beam)
+            taql_antnames = "SELECT NAME FROM {0}::ANTENNA".format(msfile)
+            t= pt.taql(taql_antnames)
+            ant_names=t.getcol("NAME")
+
+            #then get frequencies:
+            taql_freq = "SELECT CHAN_FREQ FROM {0}::SPECTRAL_WINDOW".format(msfile)
+            t = pt.taql(taql_freq)
+            freqs = t.getcol('CHAN_FREQ')[0,:]
     
+            #and number of stokes params
+            taql_stokes = "SELECT abs(DATA) AS amp from {0} limit 1" .format(msfile)
+            t_pol = pt.taql(taql_stokes)
+            pol_array = t_pol.getcol('amp')
+            n_stokes = pol_array.shape[2] #shape is time, one, nstokes
+    
+            #take MS file and get calibrated data
+            amp_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
+            phase_ant_array = np.empty((len(ant_names),len(freqs),n_stokes),dtype=object)
+    
+            for ant in xrange(len(ant_names)):
+                try:
+                    taql_command = ("SELECT abs(gmeans(CORRECTED_DATA[FLAG])) AS amp, "
+                                    "arg(gmeans(CORRECTED_DATA[FLAG])) AS phase FROM {0} "
+                                    "WHERE ANTENNA1!=ANTENNA2 && "
+                                    "(ANTENNA1={1} || ANTENNA2={1})").format(msfile,ant)
+                    t = pt.taql(taql_command)
+                    test=t.getcol('amp')
+                    amp_ant_array[ant,:,:] = t.getcol('amp')[0,:,:]
+                    phase_ant_array[ant,:,:] = t.getcol('phase')[0,:,:]
+                except:
+                    amp_ant_array[ant,:,:] = np.full((len(freqs),n_stokes),np.nan) 
+                    phase_ant_array[ant,:,:] = np.full((len(freqs),n_stokes),np.nan)
+                
+            self.phase[i] = phase_ant_array
+            self.amp[i] = amp_ant_array
+            self.freq[i] = freqs
+            self.ants[i] = ant_names
+            
+    def plot_amp(self,imagepath=None):
+        #first define imagepath if not given by user
+        if imagepath == None:
+            #write in user's home directory (know that have write access there)
+            myusername = os.environ['USER']
+            imagepath = '/home/{}/dataqa_plots'.format(myusername)
+        #check if imagepath exists, create if necessary
+        if not os.path.exists(imagepath):
+            print "{} doesn't exist, creating".format(imagepath)
+            os.makedirs(imagepath)
+        #plot amplitude, one plot per antenna
+        #put plots in default place w/ default name
+        ant_names = self.ants[0]
+        #figlist = ['fig_'+str(i) for i in range(len(ant_names))]
+        for a,ant in enumerate(ant_names):
+            #iterate through antennas
+            #set up for 8x5 plots (40 beams)
+            nx = 8
+            ny = 5
+            xsize = nx*4
+            ysize = ny*4
+            plt.figure(figsize=(xsize,ysize))
+            plt.suptitle('Corrected amplitude for Antenna {0}'.format(ant))
+            
+            for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+                beamnum = int(beam)
+                plt.subplot(ny, nx, beamnum+1)
+                plt.scatter(self.freq[n],self.amp[n][a,:,0],
+                           label='XX, {0}'.format(scan),
+                           marker=',',s=1)
+                plt.scatter(self.freq[n],self.amp[n][a,:,3],
+                           label='YY, {0}'.format(scan),
+                           marker=',',s=1)
+                plt.title('Beam {0}'.format(beam))
+                plt.ylim(10,30)
+            plt.legend()
+            plt.savefig(plt.savefig('{2}/Raw_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath)))
+
+            
+    def plot_phase(self,imagepath=None):
+        #first define imagepath if not given by user
+        if imagepath == None:
+            #write in user's home directory (know that have write access there)
+            myusername = os.environ['USER']
+            imagepath = '/home/{}/dataqa_plots'.format(myusername)
+        #check if imagepath exists, create if necessary
+        if not os.path.exists(imagepath):
+            print "{} doesn't exist, creating".format(imagepath)
+            os.makedirs(imagepath)
+        #plot amplitude, one plot per antenna
+        #put plots in default place w/ default name
+        ant_names = self.ants[0]
+        #figlist = ['fig_'+str(i) for i in range(len(ant_names))]
+        for a,ant in enumerate(ant_names):
+            #iterate through antennas
+            #set up for 8x5 plots (40 beams)
+            nx = 8
+            ny = 5
+            xsize = nx*4
+            ysize = ny*4
+            plt.figure(figsize=(xsize,ysize))
+            plt.suptitle('Corrected phase for Antenna {0}'.format(ant))
+            
+            for n,(scan,beam) in enumerate(zip(self.scanlist,self.beamlist)):
+                beamnum = int(beam)
+                plt.subplot(ny, nx, beamnum+1)
+                plt.scatter(self.freq[n],self.phase[n][a,:,0],
+                           label='XX, {0}'.format(scan),
+                           marker=',',s=1)
+                plt.scatter(self.freq[n],self.phase[n][a,:,3],
+                           label='YY, {0}'.format(scan),
+                           marker=',',s=1)
+                plt.title('Beam {0}'.format(beam))
+                plt.ylim(-3,3)
+            plt.legend()
+            plt.savefig(plt.savefig('{2}/Raw_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath)))
+
+                             
 
 
 
