@@ -369,7 +369,7 @@ class BPSols(ScanData):
             plt.savefig('{2}/BP_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath))
 
             
-    def plot_phase(self,imagepath=None,ymin=-3,ymax=3):
+    def plot_phase(self,imagepath=None,ymin=-180,ymax=180):
         #first define imagepath if not given by user
         if imagepath == None:
             #write in user's home directory (know that have write access there)
