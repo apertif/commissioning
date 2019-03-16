@@ -90,7 +90,7 @@ def get_switching_scan_dict(maxint = 7,nskip = 1, nswitch = 30):
     
     return switching_scan_dict
 
-def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearcal=False):
+def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearcal=False, flag=True, docal=True):
     #this is a wrapper function that copies, updates, flags, calibrates data
     #Use scan_dict (output of get_scan_list) to find files for copying over
     #basedir is base location to copy to
@@ -166,14 +166,17 @@ def get_cal_data(scan_dict,basedir,scanset=None,mode='single',run=False, clearca
             scanlist.append(scan)
             beamlist.append(beam)
             if run==False:
-                print 'In verification mode, no data copied, will skip remaining steps'
+                pass
+                #print 'In verification mode, no data copied, will skip remaining steps'
             else:
-                print 'Fixing source names'
+                #print 'Fixing source names'
                 fix_source_name(scan,beam,basedir)
-                print 'Flagging data'
-                flag_scan(scan,beam,basedir)
-                print 'Calibrating data'
-                calibrate_scan(scan,beam,basedir)
+                #print 'Flagging data'
+                if flag == True:
+                    flag_scan(scan,beam,basedir)
+                #print 'Calibrating data'
+                if docal == True:
+                    calibrate_scan(scan,beam,basedir)
                 
     return scanlist,beamlist
                 
@@ -366,7 +369,16 @@ class BPSols(ScanData):
             plt.savefig('{2}/BP_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath))
 
             
-    def plot_phase(self):
+    def plot_phase(self,imagepath=None,ymin=-3,ymax=3):
+        #first define imagepath if not given by user
+        if imagepath == None:
+            #write in user's home directory (know that have write access there)
+            myusername = os.environ['USER']
+            imagepath = '/home/{}/dataqa_plots'.format(myusername)
+        #check if imagepath exists, create if necessary
+        if not os.path.exists(imagepath):
+            print "{} doesn't exist, creating".format(imagepath)
+            os.makedirs(imagepath)
         #plot phase, one plot per antenna
         ant_names = self.ants[0]
         #figlist = ['fig_'+str(i) for i in range(len(ant_names))]
@@ -390,7 +402,7 @@ class BPSols(ScanData):
                             label='YY, {0}'.format(self.time[n][a]),
                             marker=',',s=1)
                 plt.title('Beam {0}'.format(beam))
-                plt.ylim(-180,180)
+                plt.ylim(ymin,ymax)
             plt.legend()
             plt.savefig('{2}/BP_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath))
 
@@ -758,7 +770,7 @@ class RawData(ScanData):
             plt.savefig(plt.savefig('{2}/Raw_amp_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath)))
 
             
-    def plot_phase(self,imagepath=None):
+    def plot_phase(self,imagepath=None,ymin=-3,ymax=3):
         #first define imagepath if not given by user
         if imagepath == None:
             #write in user's home directory (know that have write access there)
@@ -792,7 +804,7 @@ class RawData(ScanData):
                            label='YY, {0}'.format(scan),
                            marker=',',s=1)
                 plt.title('Beam {0}'.format(beam))
-                plt.ylim(-3,3)
+                plt.ylim(ymin,ymax)
             plt.legend()
             plt.savefig(plt.savefig('{2}/Raw_phase_{0}_{1}.png'.format(ant,self.scanlist[0][0:6],imagepath)))
 
