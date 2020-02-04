@@ -18,6 +18,12 @@ import astropy.units as u
 from astropy.io.fits import getheader
 from astropy.io import ascii
 
+"""
+Global variables
+"""
+mosaic_path = '/tank/apertif/mosaics/' #path to mosaic top level, assuming happili-05
+internal_mosaic_path = 'mosaics/continuum/mosaic/' #internal path for continuum mosaics
+
 def get_pybdsf_comp(taskid):
     """
     Basic function to take taskid and get pybdsf ouptput from continuum mosaic
@@ -27,8 +33,6 @@ def get_pybdsf_comp(taskid):
         data: table data from output csvfile
     """
     #get path
-    mosaic_path = '/tank/apertif/mosaics/'
-    internal_mosaic_path = 'mosaics/continuum/mosaic/'
     filename = '{0}_mosaic_pybdsf_comp.csv'.format(taskid)
     path_to_comp = os.path.join(mosaic_path,taskid,internal_mosaic_path,filename)
     #load file
@@ -101,8 +105,6 @@ def get_beam_info(taskid):
     """
     Helper function to get beam sizes from header
     """
-    mosaic_path = '/tank/apertif/mosaics/'
-    internal_mosaic_path = 'mosaics/continuum/mosaic/'
     filename = '{0}_mosaic.fits'.format(taskid)
     path_to_mosaic = os.path.join(mosaic_path,taskid,internal_mosaic_path,filename)
     hdr = getheader(path_to_mosaic)
@@ -155,7 +157,7 @@ def plot_pa(taskid):
    
     return fig
 
-def plot_peak_size(taskid):
+def plot_peak_size(taskid,image_plane=False):
     """
     Plot peak flux against major and minor axes
     """
@@ -167,19 +169,29 @@ def plot_peak_size(taskid):
     fig, (ax1,ax2) = plt.subplots(nrows=2, ncols=1, figsize = (8,12), 
                                   sharey = True)
     
-    ax1.scatter(data['Maj']*u.deg.to(u.arcsec),data['Peak_flux']*u.Jy.to(u.mJy),s=3)
-    ax1.set_xlabel('Major axis [arcsec]')
+    
+    if image_plane == True:
+        ax1.scatter(data['Maj_img_plane']*u.deg.to(u.arcsec),data['Peak_flux']*u.Jy.to(u.mJy),s=3)
+        ax2.scatter(data['Min_img_plane']*u.deg.to(u.arcsec),data['Peak_flux']*u.Jy.to(u.mJy),s=3)
+        ax1.set_xlabel('Major axis, image plane [arcsec]')
+        ax2.set_xlabel('Minor axis, image plane [arcsec]')
+    else:
+        ax1.scatter(data['Maj']*u.deg.to(u.arcsec),data['Peak_flux']*u.Jy.to(u.mJy),s=3)
+        ax2.scatter(data['Min']*u.deg.to(u.arcsec),data['Peak_flux']*u.Jy.to(u.mJy),s=3)
+        ax1.set_xlabel('Major axis [arcsec]')
+        ax2.set_xlabel('Minor axis [arcsec]')  
+    
     ax1.set_ylabel(' Peak (mJy/bm) ')
     
-    ax2.scatter(data['Min']*u.deg.to(u.arcsec),data['Peak_flux']*u.Jy.to(u.mJy),s=3)
-    ax2.set_xlabel('Minor axis [arcsec]')
-    ax2.set_ylabel(' Peak (mJy/bm) ')
-    
+    ax2.set_ylabel(' Peak (mJy/bm) ')    
     
     bmaj, bmin = get_beam_info(taskid)
    
-    ax1.plot([bmaj.value,bmaj.value],[0,1],'k:')
-    ax2.plot([bmin.value,bmin.value],[0,1],'k:')
+    ax1.set_ylim([0,500])
+    ax2.set_ylim([0,500])
+    
+    ax1.plot([bmaj.value,bmaj.value],[0,1000],'k:')
+    ax2.plot([bmin.value,bmin.value],[0,1000],'k:')
     
     return fig
 
@@ -205,9 +217,58 @@ def plot_total_size(taskid):
     
     
     bmaj, bmin = get_beam_info(taskid)
-   
-    ax1.plot([bmaj.value,bmaj.value],[0,1],'k:')
-    ax2.plot([bmin.value,bmin.value],[0,1],'k:')
     
+    ax1.set_ylim([0,500])
+    ax2.set_ylim([0,500])
+   
+    ax1.plot([bmaj.value,bmaj.value],[0,1000],'k:')
+    ax2.plot([bmin.value,bmin.value],[0,1000],'k:')
+    
+    return fig
+    
+def plot_cutouts_minor(taskid, minormin, minormax):
+    """
+    Plot cutouts of sources with minor axis limits as given
+    inputs:
+        taskid: string
+        minormin: smallest minor axis size in arcsec (units)
+        minormax: largest minor axis in arcsec (units)
+    """
+    filename = '{0}_mosaic.fits'.format(taskid)
+    path_to_mosaic = os.path.join(mosaic_path,taskid,internal_mosaic_path,filename)
+    
+    print(path_to_mosaic)
+    
+    data = get_pybdsf_comp(taskid)
+    
+    #find indices of sources
+    minoravg = (minormin + minormax) / 2. 
+    minorhalf = (minormax - minormin) / 2.
+    ind = np.where(np.abs(data['Min']-minoravg.to(u.deg).value) <= 
+                   minorhalf.to(u.deg).value)[0]
+    
+    nplots = len(ind)
+    fig = plt.figure(figsize=(14, 14))
+    
+    if nplots > 20:
+        print(('Requesting {0} plots! This is too many. '
+               'Please retry minor axis limits').format(nplots))
+    else:
+        nx = 4
+        ny = int(np.ceil(nplots / nx))
+        i=1
+ 
+        for source in ind:
+        #iterate over index array
+            try:
+                f1 = aplpy.FITSFigure(path_to_mosaic,figure=fig,subplot=(ny,nx,i))
+                f1.show_grayscale()
+                #recenter w/ 2 arcmin radius
+                f1.recenter(data['RA'][ind],data['DEC'][ind],radius=2/60.)
+                i=i+1
+            except:
+                #if a plot fails, keep going
+                i=i+1
+                
     return fig
     
