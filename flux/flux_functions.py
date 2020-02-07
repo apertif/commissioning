@@ -17,6 +17,7 @@ import numpy as np
 import astropy.units as u
 from astropy.io.fits import getheader
 from astropy.io import ascii
+import aplpy
 
 """
 Global variables
@@ -225,7 +226,8 @@ def plot_total_size(taskid):
     ax2.plot([bmin.value,bmin.value],[0,1000],'k:')
     
     return fig
-    
+
+
 def plot_cutouts_minor(taskid, minormin, minormax):
     """
     Plot cutouts of sources with minor axis limits as given
@@ -237,8 +239,6 @@ def plot_cutouts_minor(taskid, minormin, minormax):
     filename = '{0}_mosaic.fits'.format(taskid)
     path_to_mosaic = os.path.join(mosaic_path,taskid,internal_mosaic_path,filename)
     
-    print(path_to_mosaic)
-    
     data = get_pybdsf_comp(taskid)
     
     #find indices of sources
@@ -246,29 +246,36 @@ def plot_cutouts_minor(taskid, minormin, minormax):
     minorhalf = (minormax - minormin) / 2.
     ind = np.where(np.abs(data['Min']-minoravg.to(u.deg).value) <= 
                    minorhalf.to(u.deg).value)[0]
-    
+
     nplots = len(ind)
-    fig = plt.figure(figsize=(14, 14))
+    nx = 4.
+    ny = int(np.ceil(nplots / nx))
+        
+    fig = plt.figure(figsize=(3*nx, 3*ny))
     
     if nplots > 20:
         print(('Requesting {0} plots! This is too many. '
                'Please retry minor axis limits').format(nplots))
-    else:
-        nx = 4
-        ny = int(np.ceil(nplots / nx))
+    else:  
+        print('Plotting {0} sources'.format(nplots))
         i=1
  
         for source in ind:
         #iterate over index array
             try:
+                print(i)
                 f1 = aplpy.FITSFigure(path_to_mosaic,figure=fig,subplot=(ny,nx,i))
                 f1.show_grayscale()
                 #recenter w/ 2 arcmin radius
-                f1.recenter(data['RA'][ind],data['DEC'][ind],radius=2/60.)
+                f1.recenter(data['RA'][source],data['DEC'][source],radius=2/60.)
+                #plot fitted shape
+                f1.show_ellipses(data['RA'][source],data['DEC'][source],30/3600.,15/3600.,angle=0,
+                                 edgecolor='red',facecolor=None)
                 i=i+1
             except:
                 #if a plot fails, keep going
                 i=i+1
+        plt.show();
                 
     return fig
     
