@@ -269,8 +269,11 @@ def plot_cutouts_minor(taskid, minormin, minormax):
                 #recenter w/ 2 arcmin radius
                 f1.recenter(data['RA'][source],data['DEC'][source],radius=2/60.)
                 #plot fitted shape
-                f1.show_ellipses(data['RA'][source],data['DEC'][source],30/3600.,15/3600.,angle=0,
-                                 edgecolor='red',facecolor=None)
+                f1.show_ellipses(data['RA'][source],data['DEC'][source],
+                                 data['Min'][source], #15/3600., #width
+                                 data['Maj'][source], #30/3600., #height
+                                 angle=data['PA'][source], #angle=0, #angle
+                                 edgecolor='red',facecolor='None')
                 i=i+1
             except:
                 #if a plot fails, keep going
